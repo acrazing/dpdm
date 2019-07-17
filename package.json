@@ -1,0 +1,117 @@
+{
+  "name": "dpdm",
+  "version": "2.0.0",
+  "description": "A dependency analyzer for JavaScript/TypeScript",
+  "author": "acrazing <joking.young@gmail.com>",
+  "main": "lib/index.js",
+  "module": "lib/index.mjs",
+  "types": "lib/index.d.ts",
+  "files": [
+    "assets/",
+    "lib/",
+    "src/"
+  ],
+  "bin": {
+    "dpdm": "lib/bin/dpdm.js"
+  },
+  "sideEffects": [
+    "*.css",
+    "*.less",
+    "*.scss"
+  ],
+  "scripts": {
+    "build": "run-s clean && run-p build:cjs build:esm && run-s build:esm:rename build:cjs:rename",
+    "build:cjs": "tsc --outDir cjs --module commonjs",
+    "build:cjs:rename": "run-p build:cjs:rename:js build:cjs:rename:map",
+    "build:cjs:rename:js": "find ./cjs -type f -name '*.js' | sed -E 's/^\\.\\/cjs\\/(.+)$/\\1/' | xargs -I % mv ./cjs/% ./lib/%",
+    "build:cjs:rename:map": "find ./cjs -type f -name '*.js.map' | sed -E 's/^\\.\\/cjs\\/(.+)$/\\1/' | xargs -I % mv ./cjs/% ./lib/%",
+    "build:esm": "tsc --outDir lib --module esnext --declaration",
+    "build:esm:rename": "run-p build:esm:rename:js build:esm:rename:map",
+    "build:esm:rename:js": "find ./lib -type f -name '*.js' | sed -E 's/^(.+)\\.js$/\\1/' | xargs -I % mv %.js %.mjs",
+    "build:esm:rename:map": "find ./lib -type f -name '*.js.map' | sed -E 's/^(.+)\\.js\\.map$/\\1/' | xargs -I % mv %.js.map %.mjs.map",
+    "clean": "rm -rf cjs esm lib build temp .cache",
+    "prepublishOnly": "run-s test build",
+    "start": "npm run clean && npm run build:esm -- --watch",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:acrazing/dpdm.git"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/jest": "^24.0.15",
+    "husky": "^3.0.0",
+    "jest": "^24.8.0",
+    "lint-staged": "^8.2.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^1.18.2",
+    "ts-jest": "^24.0.2"
+  },
+  "dependencies": {
+    "@types/fs-extra": "^8.0.0",
+    "@types/yargs": "^13.0.0",
+    "fs-extra": "^8.1.0",
+    "tslib": "^1.10.0",
+    "typescript": "^3.5.3",
+    "yargs": "^13.3.0"
+  },
+  "cliVersion": "8.8.4",
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "linters": {
+      "*.{js,jsx,ts,tsx,json,css,less,scss,md}": [
+        "prettier --write",
+        "git add"
+      ]
+    },
+    "ignore": [
+      "**/assets/**/*"
+    ]
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json",
+      "node",
+      "mjs"
+    ],
+    "cacheDirectory": ".cache/jest",
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "<rootDir>/src/**/*.{ts,tsx}",
+      "!**/*.d.ts"
+    ],
+    "coverageDirectory": "temp/coverage",
+    "globals": {
+      "__DEV__": true,
+      "ENV": {}
+    },
+    "testMatch": [
+      "<rootDir>/src/**/*.spec.{ts,tsx}"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    }
+  },
+  "prettier": {
+    "printWidth": 80,
+    "tabWidth": 2,
+    "useTabs": false,
+    "semi": true,
+    "singleQuote": true,
+    "jsxSingleQuote": false,
+    "trailingComma": "all",
+    "bracketSpacing": true,
+    "jsxBracketSameLine": false,
+    "arrowParens": "always",
+    "endOfLine": "lf"
+  }
+}

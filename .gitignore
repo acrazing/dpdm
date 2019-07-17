@@ -1,0 +1,34 @@
+# 编译配置
+node_modules/
+.cache/
+build/
+temp/
+esm/
+cjs/
+lib/
+__lizard*
+
+# 日志
+*.log
+
+# 本地环境配置
+local.*
+local-*
+*.local
+*.local.*
+/.env.development
+
+# 杂项
+.DS_Store
+.DS_Store*
+*~
+.*~
+*.swp
+.*.swp
+*.tgz
+
+# lock 文件
+yarn.lock
+
+.idea/
+.vscode/
