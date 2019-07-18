@@ -14,7 +14,7 @@ export const glob = util.promisify(G);
 
 export const defaultOptions: ParseOptions = {
   context: process.cwd(),
-  extensions: ['', '.js', '.jsx', '.ts', '.tsx', '.json'],
+  extensions: ['', '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json'],
   include: /\.[tj]sx?$/,
   exclude: /\/node_modules\//,
 };
@@ -36,14 +36,15 @@ export async function appendSuffix(
       const stat = await fs.stat(request + ext);
       if (stat.isFile()) {
         return request + ext;
-      } else if (stat.isDirectory() && ext === '') {
-        // ignore package.json
-        return appendSuffix(path.join(request, 'index'), extensions);
       }
-    } catch {
-      // pass
-    }
+    } catch {}
   }
+  try {
+    const stat = await fs.stat(request);
+    if (stat.isDirectory()) {
+      return appendSuffix(path.join(request, 'index'), extensions);
+    }
+  } catch {}
   return null;
 }
 
@@ -61,21 +62,17 @@ export async function resolve(
   // is package
   const nodePath = { paths: [context] };
   try {
+    const pkgPath = require.resolve(
+      path.join(request, 'package.json'),
+      nodePath,
+    );
+    const pkgJson = await fs.readJSON(pkgPath);
+    return path.join(path.dirname(pkgPath), pkgJson.module || pkgJson.main);
+  } catch {}
+  try {
     return require.resolve(request, nodePath);
-  } catch (e) {
-    try {
-      const pkgPath = require.resolve(
-        path.join(request, 'package.json'),
-        nodePath,
-      );
-      const pkgModule = (await fs.readJSON(pkgPath)).module;
-      return typeof pkgModule === 'string'
-        ? path.join(path.dirname(pkgPath), pkgModule)
-        : null;
-    } catch (e) {
-      return null;
-    }
-  }
+  } catch {}
+  return null;
 }
 
 export function shortenTree(
@@ -125,12 +122,42 @@ export function parseCircular(tree: DependencyTree): string[][] {
   return circulars;
 }
 
-export function parseWarnings(tree: DependencyTree): string[] {
+export function parseDependents(
+  tree: DependencyTree,
+): Record<string, string[]> {
+  const output: Record<string, string[]> = {};
+  for (const key in tree) {
+    const deps = tree[key];
+    if (deps) {
+      deps.forEach((dep) => {
+        if (dep.id) {
+          (output[dep.id] = output[dep.id] || []).push(key);
+        }
+      });
+    }
+  }
+  for (const key in output) {
+    output[key].sort();
+  }
+  return output;
+}
+
+export function parseWarnings(
+  tree: DependencyTree,
+  dependents = parseDependents(tree),
+): string[] {
   const warnings: string[] = [];
   for (const key in tree) {
     const deps = tree[key];
     if (!deps) {
-      warnings.push(`ignore ${JSON.stringify(key)}`);
+      const parents = dependents[key] || [];
+      const total = parents.length;
+      warnings.push(
+        `skip ${JSON.stringify(key)}, issuers: ${parents
+          .slice(0, 2)
+          .map((id) => JSON.stringify(id))
+          .join(', ')}${total > 2 ? ` (${total - 2} more...)` : ''}`,
+      );
     } else {
       for (const dep of deps) {
         if (!dep.id) {

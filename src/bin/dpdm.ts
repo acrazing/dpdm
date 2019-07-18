@@ -30,7 +30,7 @@ const argv = yargs
     alias: 'ext',
     type: 'string',
     desc: 'comma separated extensions to resolve',
-    default: '.js,.jsx,.ts,.tsx,.json',
+    default: '.ts,.tsx,.mjs,.js,.jsx,.json',
   })
   .option('include', {
     type: 'string',
