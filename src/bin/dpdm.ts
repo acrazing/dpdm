@@ -79,32 +79,37 @@ const options: ParseOptions = {
   exclude: argv.exclude ? new RegExp(argv.exclude) : RE_NONE,
 };
 
-parseDependencyTree(argv._, options).then(async (tree) => {
-  const entriesDeep = await Promise.all(argv._.map((g) => glob(g)));
-  const entries = entriesDeep
-    .flat()
-    .map((id) => path.relative(options.context!, id));
-  const circulars = parseCircular(tree);
-  if (argv.output) {
-    await fs.outputJSON(
-      argv.output,
-      { entries, tree, circulars },
-      { spaces: 2 },
-    );
-  }
-  if (argv.tree) {
-    console.log(chalk.bold.whiteBright('• Dependencies Tree'));
-    console.log(prettyTree(tree, entries));
-    console.log('');
-  }
-  if (argv.circular) {
-    console.log(chalk.bold.redBright('• Circular Dependencies'));
-    console.log(prettyCircular(circulars));
-    console.log('');
-  }
-  if (argv.warning) {
-    console.log(chalk.bold.yellowBright('• Warnings'));
-    console.log(prettyWarning(parseWarnings(tree)));
-    console.log('');
-  }
-});
+parseDependencyTree(argv._, options)
+  .then(async (tree) => {
+    const entriesDeep = await Promise.all(argv._.map((g) => glob(g)));
+    const entries = entriesDeep
+      .flat()
+      .map((id) => path.relative(options.context!, id));
+    const circulars = parseCircular(tree);
+    if (argv.output) {
+      await fs.outputJSON(
+        argv.output,
+        { entries, tree, circulars },
+        { spaces: 2 },
+      );
+    }
+    if (argv.tree) {
+      console.log(chalk.bold.whiteBright('• Dependencies Tree'));
+      console.log(prettyTree(tree, entries));
+      console.log('');
+    }
+    if (argv.circular) {
+      console.log(chalk.bold.redBright('• Circular Dependencies'));
+      console.log(prettyCircular(circulars));
+      console.log('');
+    }
+    if (argv.warning) {
+      console.log(chalk.bold.yellowBright('• Warnings'));
+      console.log(prettyWarning(parseWarnings(tree)));
+      console.log('');
+    }
+  })
+  .catch((e) => {
+    console.error(e);
+    process.exit(e);
+  });

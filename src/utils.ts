@@ -69,7 +69,9 @@ export async function resolve(
         nodePath,
       );
       const pkgModule = (await fs.readJSON(pkgPath)).module;
-      return typeof pkgModule === 'string' ? pkgModule : null;
+      return typeof pkgModule === 'string'
+        ? path.join(path.dirname(pkgPath), pkgModule)
+        : null;
     } catch (e) {
       return null;
     }
