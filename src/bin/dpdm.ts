@@ -3,7 +3,20 @@
  * @since 2019-07-17 18:45:32
  */
 
+import chalk from 'chalk';
+import fs from 'fs-extra';
+import path from 'path';
 import yargs from 'yargs';
+import { parseDependencyTree } from '../parser';
+import { ParseOptions } from '../types';
+import {
+  glob,
+  parseCircular,
+  parseWarnings,
+  prettyCircular,
+  prettyTree,
+  prettyWarning,
+} from '../utils';
 
 const argv = yargs
   .usage('$0 [<options>] entry...')
@@ -31,7 +44,6 @@ const argv = yargs
     alias: 'o',
     type: 'string',
     desc: 'output json to file',
-    default: 'dpdm.json',
   })
   .option('tree', {
     type: 'boolean',
@@ -57,4 +69,41 @@ if (argv._.length === 0) {
   process.exit(1);
 }
 
-console.log(argv);
+const RE_NONE = /$./;
+
+const options: ParseOptions = {
+  context: argv.context || process.cwd(),
+  extensions: argv.extensions.split(','),
+  include: new RegExp(argv.include),
+  exclude: argv.exclude ? new RegExp(argv.exclude) : RE_NONE,
+};
+
+parseDependencyTree(argv._, options).then(async (tree) => {
+  const entriesDeep = await Promise.all(argv._.map((g) => glob(g)));
+  const entries = entriesDeep
+    .flat()
+    .map((id) => path.relative(options.context!, id));
+  const circulars = parseCircular(tree);
+  if (argv.output) {
+    await fs.outputJSON(
+      argv.output,
+      { entries, tree, circulars },
+      { spaces: 2 },
+    );
+  }
+  if (argv.tree) {
+    console.log(chalk.bold.whiteBright('• Dependencies Tree'));
+    console.log(prettyTree(tree, entries));
+    console.log('');
+  }
+  if (argv.circular) {
+    console.log(chalk.bold.redBright('• Circular Dependencies'));
+    console.log(prettyCircular(circulars));
+    console.log('');
+  }
+  if (argv.warning) {
+    console.log(chalk.bold.yellowBright('• Warnings'));
+    console.log(prettyWarning(parseWarnings(tree)));
+    console.log('');
+  }
+});

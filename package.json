@@ -1,6 +1,6 @@
 {
   "name": "dpdm",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "A dependency analyzer for JavaScript/TypeScript",
   "author": "acrazing <joking.young@gmail.com>",
   "main": "lib/index.js",
@@ -50,8 +50,11 @@
   },
   "dependencies": {
     "@types/fs-extra": "^8.0.0",
+    "@types/glob": "^7.1.1",
     "@types/yargs": "^13.0.0",
+    "chalk": "^2.4.2",
     "fs-extra": "^8.1.0",
+    "glob": "^7.1.4",
     "tslib": "^1.10.0",
     "typescript": "^3.5.3",
     "yargs": "^13.3.0"

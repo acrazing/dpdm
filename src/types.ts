@@ -4,7 +4,7 @@
  */
 
 export interface ParseOptions {
-  context: string;
+  context: string | null;
   extensions: string[];
   include: RegExp;
   exclude: RegExp;
@@ -21,13 +21,19 @@ export interface Dependency {
   issuer: string;
   request: string;
   kind: DependencyKind;
-  result: string;
+  id: string | null; // filename or shorten filename, cannot resolve will be null
 }
 
-export type DependencyTree = Record<string, Dependency[]>;
+/**
+ * id status warning:
+ *
+ * 1. id === null:        cannot resolve
+ * 2. tree[id] === null:  ignored
+ */
+export type DependencyTree = Record<string, ReadonlyArray<Dependency> | null>;
 
 export interface OutputResult {
-  circular: string[][];
-  tree: DependencyTree;
   entries: string[];
+  tree: DependencyTree;
+  circulars: string[][];
 }

@@ -46,6 +46,9 @@ Options:
   -h, --help           Show help  [boolean]
 ```
 
+> The result example:
+> ![](./assets/screenshot.png)
+
 ## API
 
 1. `parseDependencyTree(entry, option, output)`: parse dependencies for a single entry
