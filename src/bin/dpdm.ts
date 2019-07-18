@@ -17,6 +17,7 @@ import {
   prettyCircular,
   prettyTree,
   prettyWarning,
+  resolve,
 } from '../utils';
 
 const argv = yargs
@@ -82,9 +83,15 @@ const options: ParseOptions = {
 parseDependencyTree(argv._, options)
   .then(async (tree) => {
     const entriesDeep = await Promise.all(argv._.map((g) => glob(g)));
-    const entries = entriesDeep
-      .flat()
-      .map((id) => path.relative(options.context!, id));
+    const entries = await Promise.all(
+      entriesDeep
+        .flat()
+        .map((name) =>
+          resolve(options.context!, name, options.extensions).then((id) =>
+            id ? path.relative(options.context!, id) : name,
+          ),
+        ),
+    );
     const circulars = parseCircular(tree);
     if (argv.output) {
       await fs.outputJSON(
