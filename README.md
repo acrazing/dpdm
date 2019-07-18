@@ -1,6 +1,13 @@
 # dpdm
 
-A dependency analyzer for JavaScript/TypeScript.
+A static dependencies analyzer for CommonJS/ESM.
+
+## Features
+
+- Support `CommonJS` and `ES Module`
+- Support `JavaScript` and `TypeScript`
+- Light weight
+- Fast
 
 ## Install
 
