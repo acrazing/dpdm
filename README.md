@@ -4,10 +4,11 @@ A static dependencies analyzer for CommonJS/ESM.
 
 ## Features
 
-- Support `CommonJS` and `ES Module`
-- Support `JavaScript` and `TypeScript`
-- Light weight
-- Fast
+- Support `CommonJS` and `ES Module`.
+- Support `JavaScript` and `TypeScript` completely.
+- Light weight: use TypeScript to parse all modules.
+- Fast: use asynchronous API to load modules.
+- Stable output: This is compared to madge, whose results are completely inconclusive when analyze `TypeScript`.
 
 ## Install
 
@@ -96,6 +97,12 @@ Options:
    ```typescript jsx
    export declare function parseCircular(tree: DependencyTree): string[][];
    ```
+
+## TODO
+
+- [ ] Support HTML and HTML like modules
+- [ ] Support CSS and CSS like modules
+- [ ] Print interactive SVG
 
 ## LICENSE
 
