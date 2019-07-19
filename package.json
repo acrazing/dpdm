@@ -1,7 +1,16 @@
 {
   "name": "dpdm",
-  "version": "3.2.1",
-  "description": "A dependency analyzer for JavaScript/TypeScript",
+  "version": "3.2.2",
+  "description": "Analyze CommonJS, ESM and AMD circular dependencies of your JavaScript/TypeScript projects.",
+  "keywords": [
+    "circular",
+    "dependency",
+    "dependencies",
+    "detect",
+    "static",
+    "JavaScript",
+    "TypeScript"
+  ],
   "author": "acrazing <joking.young@gmail.com>",
   "main": "lib/index.js",
   "module": "lib/index.mjs",
