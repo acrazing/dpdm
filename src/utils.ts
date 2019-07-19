@@ -183,7 +183,7 @@ export function prettyTree(
   const idMap: Record<string, number> = {};
   const digits = Math.ceil(Math.log10(Object.keys(tree).length));
 
-  function visit(item: string, prefix: string) {
+  function visit(item: string, prefix: string, hasMore: boolean) {
     const isNew = idMap[item] === void 0;
     const iid = (idMap[item] = idMap[item] || id++);
     let line = chalk.dim(
@@ -198,14 +198,14 @@ export function prettyTree(
       return;
     }
     lines.push(line + chalk.whiteBright(item));
-    prefix += '    ';
-    for (const dep of deps) {
-      visit(dep.id || dep.request, prefix);
+    prefix += hasMore ? '·   ' : '    ';
+    for (let i = 0; i < deps.length; i++) {
+      visit(deps[i].id || deps[i].request, prefix, i < deps.length - 1);
     }
   }
 
-  for (const item of entries) {
-    visit(item, prefix);
+  for (let i = 0; i < entries.length; i++) {
+    visit(entries[i], prefix, i < entries.length - 1);
   }
 
   return lines.join('\n');
