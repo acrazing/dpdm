@@ -109,7 +109,12 @@ export async function parseDependencyTree(
       glob(entry).then((matches) =>
         Promise.all(
           matches.map((filename) =>
-            parseTreeRecursive(context, filename, fullOptions, output),
+            parseTreeRecursive(
+              context,
+              path.join(context, filename),
+              fullOptions,
+              output,
+            ),
           ),
         ),
       ),

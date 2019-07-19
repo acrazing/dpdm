@@ -87,9 +87,11 @@ parseDependencyTree(argv._, options)
       entriesDeep
         .flat()
         .map((name) =>
-          resolve(options.context!, name, options.extensions).then((id) =>
-            id ? path.relative(options.context!, id) : name,
-          ),
+          resolve(
+            options.context!,
+            path.join(options.context!, name),
+            options.extensions,
+          ).then((id) => (id ? path.relative(options.context!, id) : name)),
         ),
     );
     const circulars = parseCircular(tree);

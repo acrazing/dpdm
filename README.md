@@ -20,59 +20,64 @@ npm i -g dpdm # or yarn global add dpdm
 dpdm --help
 ```
 
-## Usage
-
-### Library
-
-```typescript jsx
-import { parseDependencyTree, parseCircular } from 'dpdm';
-
-const tree = parseDependencyTree('./index', {
-  /* options */
-});
-const circulars = parseCircular(tree);
-console.log(circulars);
-```
-
-### Command line
+## Usage in line
 
 ```bash
 $ dpdm --help
 
-dpdm.ts [<options>] entry...
+dpdm [<options>] entry...
 
 Options:
-  --version            Show version number  [boolean]
-  --context            the context directory to shorten path, default is process.cwd()  [string]
-  --extensions, --ext  comma separated extensions to resolve  [string] [default: ".js,.jsx,.ts,.tsx,.json"]
-  --include            included filenames regexp in string  [string] [default: "\.[tj]sx?$"]
-  --exclude            excluded filenames regexp in string  [string] [default: "/node_modules/"]
-  --output, -o         output json to file  [string] [default: "dpdm.json"]
-  --tree               print tree to stdout  [boolean] [default: true]
-  --circular           print circular to stdout  [boolean] [default: true]
-  --warning            print warning to stdout  [boolean] [default: true]
-  -h, --help           Show help  [boolean]
+  --version            Show version number                                                                     [boolean]
+  --context            the context directory to shorten path, default is process.cwd()                          [string]
+  --extensions, --ext  comma separated extensions to resolve          [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
+  --include            included filenames regexp in string                              [string] [default: "\.[tj]sx?$"]
+  --exclude            excluded filenames regexp in string                          [string] [default: "/node_modules/"]
+  --output, -o         output json to file                                                                      [string]
+  --tree               print tree to stdout                                                    [boolean] [default: true]
+  --circular           print circular to stdout                                                [boolean] [default: true]
+  --warning            print warning to stdout                                                 [boolean] [default: true]
+  -h, --help           Show help                                                                               [boolean]
 ```
 
 > The result example:
 > ![](./assets/screenshot.png)
 
+## Usage in module
+
+```typescript jsx
+import { parseDependencyTree, parseCircular, prettyCircular } from 'dpdm';
+
+parseDependencyTree('./index', {
+  /* options, see below */
+}).then((tree) => {
+  const circulars = parseCircular(tree);
+  console.log(prettyCircular(circulars));
+});
+```
+
 ## API
 
-1. `parseDependencyTree(entry, option, output)`: parse dependencies for a single entry
+1. `parseDependencyTree(entries, option, output)`: parse dependencies for glob entries
 
    ```typescript jsx
+   /**
+    * @param entries - the glob entries to match
+    * @param options - the options, see below
+    */
    export declare function parseDependencyTree(
-     entry: string | string[],
+     entries: string | string[],
      options: ParserOptions,
-     output?: DependencyTree,
    ): Promise<DependencyTree>;
 
+   /**
+    * the parse options
+    */
    export interface ParseOptions {
-     context: string;
-     extensions: string[];
-     include: RegExp;
-     exclude: RegExp;
+     context: string; // context to shorten filename,           default is process.cwd()
+     extensions: string[]; // the custom extensions to resolve file, default is [ '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json' ]
+     include: RegExp; // the files to parse match regex,        default is /\.[tj]sx?$/
+     exclude: RegExp; // the files to ignore parse,             default is /\/node_modules\//
    }
 
    export enum DependencyKind {
@@ -86,10 +91,12 @@ Options:
      issuer: string;
      request: string;
      kind: DependencyKind;
-     result: string;
+     id: string | null; // the shortened, resolved filename, if cannot resolve, it will be null
    }
 
-   export type DependencyTree = Record<string, Dependency[]>;
+   // the parse tree result, key is file id, value is its dependencies
+   // if file is ignored, it will be null
+   export type DependencyTree = Record<string, Dependency[] | null>;
    ```
 
 2. `parseCircular(tree)`: parse circulars in dependency tree

@@ -1,6 +1,6 @@
 {
   "name": "dpdm",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "A dependency analyzer for JavaScript/TypeScript",
   "author": "acrazing <joking.young@gmail.com>",
   "main": "lib/index.js",
@@ -87,7 +87,7 @@
       "mjs"
     ],
     "cacheDirectory": ".cache/jest",
-    "collectCoverage": true,
+    "collectCoverage": false,
     "collectCoverageFrom": [
       "<rootDir>/src/**/*.{ts,tsx}",
       "!**/*.d.ts"
