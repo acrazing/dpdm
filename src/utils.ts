@@ -67,7 +67,8 @@ export async function resolve(
       nodePath,
     );
     const pkgJson = await fs.readJSON(pkgPath);
-    return path.join(path.dirname(pkgPath), pkgJson.module || pkgJson.main);
+    const id = path.join(path.dirname(pkgPath), pkgJson.module || pkgJson.main);
+    return appendSuffix(id, extensions);
   } catch {}
   try {
     return require.resolve(request, nodePath);
