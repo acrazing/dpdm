@@ -31,7 +31,7 @@ Options:
   --version            Show version number                                                                     [boolean]
   --context            the context directory to shorten path, default is process.cwd()                          [string]
   --extensions, --ext  comma separated extensions to resolve          [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
-  --include            included filenames regexp in string                              [string] [default: "\.[tj]sx?$"]
+  --include            included filenames regexp in string                            [string] [default: "\.m?[tj]sx?$"]
   --exclude            excluded filenames regexp in string                          [string] [default: "/node_modules/"]
   --output, -o         output json to file                                                                      [string]
   --tree               print tree to stdout                                                    [boolean] [default: true]
@@ -76,7 +76,7 @@ parseDependencyTree('./index', {
    export interface ParseOptions {
      context: string; // context to shorten filename,           default is process.cwd()
      extensions: string[]; // the custom extensions to resolve file, default is [ '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json' ]
-     include: RegExp; // the files to parse match regex,        default is /\.[tj]sx?$/
+     include: RegExp; // the files to parse match regex,        default is /\.m?[tj]sx?$/
      exclude: RegExp; // the files to ignore parse,             default is /\/node_modules\//
    }
 

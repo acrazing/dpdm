@@ -35,7 +35,7 @@ const argv = yargs
   .option('include', {
     type: 'string',
     desc: 'included filenames regexp in string',
-    default: '\\.[tj]sx?$',
+    default: '\\.m?[tj]sx?$',
   })
   .option('exclude', {
     type: 'string',

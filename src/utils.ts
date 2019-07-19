@@ -15,7 +15,7 @@ export const glob = util.promisify(G);
 export const defaultOptions: ParseOptions = {
   context: process.cwd(),
   extensions: ['', '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json'],
-  include: /\.[tj]sx?$/,
+  include: /\.m?[tj]sx?$/,
   exclude: /\/node_modules\//,
 };
 
@@ -147,9 +147,18 @@ export function parseWarnings(
   dependents = parseDependents(tree),
 ): string[] {
   const warnings: string[] = [];
+  const builtin = new Set<string>();
   for (const key in tree) {
     const deps = tree[key];
     if (!deps) {
+      if (!builtin.has(key)) {
+        try {
+          if (require.resolve(key) === key) {
+            builtin.add(key);
+            continue;
+          }
+        } catch {}
+      }
       const parents = dependents[key] || [];
       const total = parents.length;
       warnings.push(
@@ -169,6 +178,11 @@ export function parseWarnings(
         }
       }
     }
+  }
+  if (builtin.size > 0) {
+    warnings.push(
+      'node ' + Array.from(builtin, (item) => JSON.stringify(item)).join(', '),
+    );
   }
   return warnings.sort();
 }
