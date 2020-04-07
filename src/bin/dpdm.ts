@@ -84,8 +84,8 @@ parseDependencyTree(argv._, options)
   .then(async (tree) => {
     const entriesDeep = await Promise.all(argv._.map((g) => glob(g)));
     const entries = await Promise.all(
-      entriesDeep
-        .flat()
+      Array<string>()
+        .concat(...entriesDeep)
         .map((name) =>
           resolve(
             options.context!,

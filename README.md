@@ -1,11 +1,11 @@
 # dpdm
 
-A static dependencies analyzer for CommonJS/ESM/AMD, supports `JavaScript` and `TypeScript`.
+A static dependencies analyzer for your `JavaScript` and `TypeScript` projects.
 
 ## Features
 
-- Support `CommonJS`, `ESM` and `AMD`.
-- Support `JavaScript` and `TypeScript` completely.
+- Supports `CommonJS`, `ESM`.
+- Supports `JavaScript` and `TypeScript` completely.
 - Light weight: use [typescript](https://npmjs.com/package/typescript) to parse all modules.
 - Fast: use asynchronous API to load modules.
 - Stable output: This is compared to madge, whose results are completely inconclusive when analyze `TypeScript`.
@@ -107,9 +107,9 @@ parseDependencyTree('./index', {
 
 ## TODO
 
-- [ ] Support HTML and HTML like modules
-- [ ] Support CSS and CSS like modules
-- [ ] Print interactive SVG
+- [ ] Supports HTML and HTML like modules
+- [ ] Supports CSS and CSS like modules
+- [ ] Prints interactive SVG
 
 ## LICENSE
 

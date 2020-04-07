@@ -172,7 +172,7 @@ export function parseWarnings(
       for (const dep of deps) {
         if (!dep.id) {
           warnings.push(
-            `lose ${JSON.stringify(dep.request)} from ${JSON.stringify(
+            `miss ${JSON.stringify(dep.request)} in ${JSON.stringify(
               dep.issuer,
             )}`,
           );

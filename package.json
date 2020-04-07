@@ -1,7 +1,7 @@
 {
   "name": "dpdm",
   "version": "3.2.2",
-  "description": "Analyze CommonJS, ESM and AMD circular dependencies of your JavaScript/TypeScript projects.",
+  "description": "Analyze circular dependencies in your JavaScript/TypeScript projects.",
   "keywords": [
     "circular",
     "dependency",
@@ -47,7 +47,7 @@
     "type": "git",
     "url": "git@github.com:acrazing/dpdm.git"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "devDependencies": {
     "@types/jest": "^24.0.15",
     "husky": "^3.0.0",
