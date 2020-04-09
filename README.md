@@ -6,6 +6,7 @@ A static dependencies analyzer for your `JavaScript` and `TypeScript` projects.
 
 - Supports `CommonJS`, `ESM`.
 - Supports `JavaScript` and `TypeScript` completely.
+  - Supports TypeScript [path mapping](https://www.typescriptlang.org/docs/handbook/module-resolution.html#path-mapping).
 - Light weight: use [typescript](https://npmjs.com/package/typescript) to parse all modules.
 - Fast: use asynchronous API to load modules.
 - Stable output: This is compared to madge, whose results are completely inconclusive when analyze `TypeScript`.

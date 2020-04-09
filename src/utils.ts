@@ -6,23 +6,48 @@
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import G from 'glob';
+import { builtinModules } from 'module';
 import path from 'path';
 import util from 'util';
 import { Dependency, DependencyTree, ParseOptions } from './types';
+
+const allBuiltins = new Set(builtinModules);
 
 export const glob = util.promisify(G);
 
 export const defaultOptions: ParseOptions = {
   context: process.cwd(),
   extensions: ['', '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json'],
-  include: /\.m?[tj]sx?$/,
+  js: ['.ts', '.tsx', '.mjs', '.js', '.jsx'],
+  include: /.*/,
   exclude: /\/node_modules\//,
+  tsconfig: void 0,
+  onProgress: () => void 0,
 };
 
 export function normalizeOptions(options: Partial<ParseOptions>): ParseOptions {
   const newOptions = { ...defaultOptions, ...options };
   if (newOptions.extensions.indexOf('') < 0) {
     newOptions.extensions.unshift('');
+  }
+  newOptions.context = path.resolve(newOptions.context);
+  if (options.tsconfig === void 0) {
+    try {
+      const tsconfig = path.join(newOptions.context, 'tsconfig.json');
+      const stat = fs.statSync(tsconfig);
+      if (stat.isFile()) {
+        options.tsconfig = tsconfig;
+      }
+    } catch {}
+  } else {
+    let stat: fs.Stats | undefined;
+    try {
+      stat = fs.statSync(options.tsconfig);
+    } catch {}
+    if (!stat || !stat.isFile()) {
+      throw new Error(`specified tsconfig "${options.tsconfig}" is not a file`);
+    }
+    options.tsconfig = path.join(process.cwd(), options.tsconfig);
   }
   return newOptions;
 }
@@ -48,11 +73,17 @@ export async function appendSuffix(
   return null;
 }
 
-export async function resolve(
+export type Resolver = (
   context: string,
   request: string,
   extensions: string[],
-) {
+) => Promise<string | null>;
+
+export const simpleResolver: Resolver = async (
+  context: string,
+  request: string,
+  extensions: string[],
+) => {
   if (path.isAbsolute(request)) {
     return appendSuffix(request, extensions);
   }
@@ -74,7 +105,7 @@ export async function resolve(
     return require.resolve(request, nodePath);
   } catch {}
   return null;
-}
+};
 
 export function shortenTree(
   context: string,
@@ -151,15 +182,10 @@ export function parseWarnings(
   const builtin = new Set<string>();
   for (const key in tree) {
     const deps = tree[key];
+    if (!builtin.has(key) && allBuiltins.has(key)) {
+      builtin.add(key);
+    }
     if (!deps) {
-      if (!builtin.has(key)) {
-        try {
-          if (require.resolve(key) === key) {
-            builtin.add(key);
-            continue;
-          }
-        } catch {}
-      }
       const parents = dependents[key] || [];
       const total = parents.length;
       warnings.push(
@@ -201,18 +227,21 @@ export function prettyTree(
   function visit(item: string, prefix: string, hasMore: boolean) {
     const isNew = idMap[item] === void 0;
     const iid = (idMap[item] = idMap[item] || id++);
-    let line = chalk.dim(
+    let line = chalk.gray(
       prefix + '- ' + iid.toString().padStart(digits, '0') + ') ',
     );
     const deps = tree[item];
-    if (!isNew) {
-      lines.push(line + chalk.dim(item));
+    if (allBuiltins.has(item)) {
+      lines.push(line + chalk.blue(item));
+      return;
+    } else if (!isNew) {
+      lines.push(line + chalk.gray(item));
       return;
     } else if (!deps) {
-      lines.push(line + chalk.yellowBright(item));
+      lines.push(line + chalk.yellow(item));
       return;
     }
-    lines.push(line + chalk.whiteBright(item));
+    lines.push(line + item);
     prefix += hasMore ? '·   ' : '    ';
     for (let i = 0; i < deps.length; i++) {
       visit(deps[i].id || deps[i].request, prefix, i < deps.length - 1);
@@ -231,9 +260,9 @@ export function prettyCircular(circulars: string[][], prefix = '  ') {
   return circulars
     .map((line, index) => {
       return (
-        chalk.dim(
+        chalk.gray(
           `${prefix}${(index + 1).toString().padStart(digits, '0')}) `,
-        ) + line.map((item) => chalk.cyanBright(item)).join(chalk.dim(' -> '))
+        ) + line.map((item) => chalk.red(item)).join(chalk.gray(' -> '))
       );
     })
     .join('\n');
@@ -244,9 +273,9 @@ export function prettyWarning(warnings: string[], prefix = '  ') {
   return warnings
     .map((line, index) => {
       return (
-        chalk.dim(
+        chalk.gray(
           `${prefix}${(index + 1).toString().padStart(digits, '0')}) `,
-        ) + chalk.yellowBright(line)
+        ) + chalk.yellow(line)
       );
     })
     .join('\n');

@@ -6,6 +6,7 @@
 
 import chalk from 'chalk';
 import fs from 'fs-extra';
+import ora from 'ora';
 import path from 'path';
 import yargs from 'yargs';
 import { parseDependencyTree } from '../parser';
@@ -17,14 +18,14 @@ import {
   prettyCircular,
   prettyTree,
   prettyWarning,
-  resolve,
+  simpleResolver,
 } from '../utils';
 
 const argv = yargs
   .usage('$0 [<options>] entry...')
   .option('context', {
     type: 'string',
-    desc: 'the context directory to shorten path, default is process.cwd()',
+    desc: 'the context directory to shorten path, default is current directory',
   })
   .option('extensions', {
     alias: 'ext',
@@ -32,10 +33,15 @@ const argv = yargs
     desc: 'comma separated extensions to resolve',
     default: '.ts,.tsx,.mjs,.js,.jsx,.json',
   })
+  .option('js', {
+    alias: 'J',
+    type: 'string',
+    desc: 'comma separated extensions indicate the file is js like',
+    default: '.ts,.tsx,.mjs,.js,.jsx',
+  })
   .option('include', {
     type: 'string',
     desc: 'included filenames regexp in string',
-    default: '\\.m?[tj]sx?$',
   })
   .option('exclude', {
     type: 'string',
@@ -62,6 +68,12 @@ const argv = yargs
     desc: 'print warning to stdout',
     default: true,
   })
+  .option('tsconfig', {
+    type: 'string',
+    desc:
+      'the tsconfig path, which is used for resolve path alias, default is tsconfig.json if it exists in context directory',
+    alias: 't',
+  })
   .alias('h', 'help')
   .wrap(Math.min(yargs.terminalWidth(), 120)).argv;
 
@@ -71,23 +83,46 @@ if (argv._.length === 0) {
   process.exit(1);
 }
 
-const RE_NONE = /$./;
+const o = ora('Loading dependencies...').start();
+
+let total = 0;
+let ended = 0;
+let current = '';
+
+const context = argv.context || process.cwd();
+
+function onProgress(event: 'start' | 'end', target: string) {
+  switch (event) {
+    case 'start':
+      total += 1;
+      current = path.relative(context, target);
+      break;
+    case 'end':
+      ended += 1;
+      break;
+  }
+  o.text = `[${ended}/${total}] Analyzing ${current}...`;
+}
 
 const options: ParseOptions = {
-  context: argv.context || process.cwd(),
+  context,
   extensions: argv.extensions.split(','),
-  include: new RegExp(argv.include),
-  exclude: argv.exclude ? new RegExp(argv.exclude) : RE_NONE,
+  js: argv.js.split(','),
+  include: new RegExp(argv.include || '.*'),
+  exclude: new RegExp(argv.exclude || '$.'),
+  tsconfig: argv.tsconfig,
+  onProgress,
 };
 
 parseDependencyTree(argv._, options)
   .then(async (tree) => {
+    o.stop();
     const entriesDeep = await Promise.all(argv._.map((g) => glob(g)));
     const entries = await Promise.all(
       Array<string>()
         .concat(...entriesDeep)
         .map((name) =>
-          resolve(
+          simpleResolver(
             options.context!,
             path.join(options.context!, name),
             options.extensions,
@@ -103,22 +138,23 @@ parseDependencyTree(argv._, options)
       );
     }
     if (argv.tree) {
-      console.log(chalk.bold.whiteBright('• Dependencies Tree'));
+      console.log(chalk.bold('• Dependencies Tree'));
       console.log(prettyTree(tree, entries));
       console.log('');
     }
     if (argv.circular) {
-      console.log(chalk.bold.redBright('• Circular Dependencies'));
+      console.log(chalk.bold.red('• Circular Dependencies'));
       console.log(prettyCircular(circulars));
       console.log('');
     }
     if (argv.warning) {
-      console.log(chalk.bold.yellowBright('• Warnings'));
+      console.log(chalk.bold.yellow('• Warnings'));
       console.log(prettyWarning(parseWarnings(tree)));
       console.log('');
     }
   })
-  .catch((e) => {
-    console.error(e);
-    process.exit(e);
+  .catch((e: Error) => {
+    o.fail();
+    console.error(e.stack || e);
+    process.exit(1);
   });

@@ -4,10 +4,13 @@
  */
 
 export interface ParseOptions {
-  context: string | null;
+  context: string;
   extensions: string[];
+  js: string[];
   include: RegExp;
   exclude: RegExp;
+  tsconfig: string | undefined;
+  onProgress: (event: 'start' | 'end', target: string) => void;
 }
 
 export enum DependencyKind {

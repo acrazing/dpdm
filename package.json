@@ -1,6 +1,6 @@
 {
   "name": "dpdm",
-  "version": "3.2.2",
+  "version": "3.3.0",
   "description": "Analyze circular dependencies in your JavaScript/TypeScript projects.",
   "keywords": [
     "circular",
@@ -64,6 +64,7 @@
     "chalk": "^2.4.2",
     "fs-extra": "^8.1.0",
     "glob": "^7.1.4",
+    "ora": "^4.0.3",
     "tslib": "^1.10.0",
     "typescript": "^3.5.3",
     "yargs": "^13.3.0"

@@ -4,17 +4,17 @@
  */
 
 import { dirname, join } from 'path';
-import { resolve } from './utils';
+import { simpleResolver } from './utils';
 
 describe('util', () => {
   it('should resolve correctly', async () => {
     const ext = ['', '.js', '.jsx', '.ts', '.tsx', '.json'];
-    const local = await resolve(__dirname, './bin/dpdm', ext);
-    const index = await resolve(__dirname, '.', ext);
+    const local = await simpleResolver(__dirname, './bin/dpdm', ext);
+    const index = await simpleResolver(__dirname, '.', ext);
     // dependents on yarn.lock
-    const pkg = await resolve(__dirname, 'base', ext);
-    const deepPkg = await resolve(dirname(pkg!), 'define-property', ext);
-    const notFound = await resolve(__dirname, './utils.tsx', ext);
+    const pkg = await simpleResolver(__dirname, 'base', ext);
+    const deepPkg = await simpleResolver(dirname(pkg!), 'define-property', ext);
+    const notFound = await simpleResolver(__dirname, './utils.tsx', ext);
     expect([local, index, pkg, deepPkg, notFound]).toEqual([
       join(__dirname, 'bin/dpdm.ts'),
       join(__dirname, 'index.ts'),
