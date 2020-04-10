@@ -108,6 +108,7 @@ function onProgress(event: 'start' | 'end', target: string) {
       break;
   }
   o.text = `[${ended}/${total}] Analyzing ${current}...`;
+  o.render();
 }
 
 const options: ParseOptions = {
