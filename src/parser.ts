@@ -6,12 +6,8 @@
 import fs from 'fs-extra';
 import path from 'path';
 import ts from 'typescript';
-import {
-  Dependency,
-  DependencyKind,
-  DependencyTree,
-  ParseOptions,
-} from './types';
+import { DependencyKind } from './consts';
+import { Dependency, DependencyTree, ParseOptions } from './types';
 import {
   glob,
   normalizeOptions,
@@ -19,6 +15,13 @@ import {
   shortenTree,
   simpleResolver,
 } from './utils';
+
+const typescriptTransformOptions: ts.CompilerOptions = {
+  target: ts.ScriptTarget.ESNext,
+  module: ts.ModuleKind.ESNext,
+  jsx: ts.JsxEmit.Preserve,
+  isolatedModules: true,
+};
 
 async function parseTreeRecursive(
   context: string,
@@ -61,7 +64,7 @@ async function parseTreeRecursive(
     } else if (
       ts.isCallExpression(node) &&
       ts.isIdentifier(node.expression) &&
-      node.expression.getText() === 'require' &&
+      node.expression.escapedText === 'require' &&
       node.arguments.length === 1 &&
       ts.isStringLiteral(node.arguments[0])
     ) {
@@ -90,14 +93,28 @@ async function parseTreeRecursive(
   }
 
   const code = await fs.readFile(id, 'utf8');
-  const source = ts.createSourceFile(
-    id,
-    code,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
-  );
-  ts.forEachChild(source, nodeVisitor);
+  const ext = path.extname(id);
+  let source: ts.SourceFile | undefined;
+  if (
+    options.transform &&
+    (ext === ts.Extension.Ts || ext === ts.Extension.Tsx)
+  ) {
+    ts.transpileModule(code, {
+      compilerOptions: typescriptTransformOptions,
+      transformers: {
+        after: [() => (node) => (source = node)],
+      },
+    });
+  } else {
+    source = ts.createSourceFile(
+      id,
+      code,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX,
+    );
+  }
+  ts.forEachChild(source!, nodeVisitor);
   options.onProgress('end', id);
   return Promise.all(jobs).then((deps) => {
     deps.forEach((id, index) => (dependencies[index].id = id));

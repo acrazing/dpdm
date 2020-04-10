@@ -7,6 +7,7 @@ A static dependencies analyzer for your `JavaScript` and `TypeScript` projects.
 - Supports `CommonJS`, `ESM`.
 - Supports `JavaScript` and `TypeScript` completely.
   - Supports TypeScript [path mapping](https://www.typescriptlang.org/docs/handbook/module-resolution.html#path-mapping).
+  - Supports ignore TypeScript type dependency
 - Light weight: use [typescript](https://npmjs.com/package/typescript) to parse all modules.
 - Fast: use asynchronous API to load modules.
 - Stable output: This is compared to madge, whose results are completely inconclusive when analyze `TypeScript`.
@@ -24,21 +25,26 @@ dpdm --help
 ## Usage in line
 
 ```bash
-$ dpdm --help
-
-dpdm [<options>] entry...
+dpdm.ts [<options>] files...
 
 Options:
-  --version            Show version number                                                                     [boolean]
-  --context            the context directory to shorten path, default is process.cwd()                          [string]
-  --extensions, --ext  comma separated extensions to resolve          [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
-  --include            included filenames regexp in string                            [string] [default: "\.m?[tj]sx?$"]
-  --exclude            excluded filenames regexp in string                          [string] [default: "/node_modules/"]
-  --output, -o         output json to file                                                                      [string]
-  --tree               print tree to stdout                                                    [boolean] [default: true]
-  --circular           print circular to stdout                                                [boolean] [default: true]
-  --warning            print warning to stdout                                                 [boolean] [default: true]
-  -h, --help           Show help                                                                               [boolean]
+  --version            Show version number                                                 [boolean]
+  --context            the context directory to shorten path, default is current directory  [string]
+  --extensions, --ext  comma separated extensions to resolve
+                                                  [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
+  --js                 comma separated extensions indicate the file is js like
+                                                        [string] [default: ".ts,.tsx,.mjs,.js,.jsx"]
+  --include            included filenames regexp in string                                  [string]
+  --exclude            excluded filenames regexp in string      [string] [default: "/node_modules/"]
+  --output, -o         output json to file                                                  [string]
+  --tree               print tree to stdout                                [boolean] [default: true]
+  --circular           print circular to stdout                            [boolean] [default: true]
+  --warning            print warning to stdout                             [boolean] [default: true]
+  --tsconfig           the tsconfig path, which is used for resolve path alias, default is
+                       tsconfig.json if it exists in context directory                      [string]
+  --transform, -T      transform typescript modules to javascript before analyze, it allows you to
+                       omit types dependency in typescript                [boolean] [default: false]
+  -h, --help           Show help                                                           [boolean]
 ```
 
 > The result example:

@@ -3,6 +3,8 @@
  * @since 2019-07-17 18:45:59
  */
 
+import { DependencyKind } from './consts';
+
 export interface ParseOptions {
   context: string;
   extensions: string[];
@@ -11,13 +13,7 @@ export interface ParseOptions {
   exclude: RegExp;
   tsconfig: string | undefined;
   onProgress: (event: 'start' | 'end', target: string) => void;
-}
-
-export enum DependencyKind {
-  CommonJS = 'CommonJS', // require
-  StaticImport = 'StaticImport', // import ... from "foo"
-  DynamicImport = 'DynamicImport', // import("foo")
-  StaticExport = 'StaticExport', // export ... from "foo"
+  transform: boolean;
 }
 
 export interface Dependency {

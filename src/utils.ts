@@ -22,6 +22,7 @@ export const defaultOptions: ParseOptions = {
   include: /.*/,
   exclude: /\/node_modules\//,
   tsconfig: void 0,
+  transform: false,
   onProgress: () => void 0,
 };
 

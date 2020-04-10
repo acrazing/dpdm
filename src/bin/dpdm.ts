@@ -22,7 +22,8 @@ import {
 } from '../utils';
 
 const argv = yargs
-  .usage('$0 [<options>] entry...')
+  .strict()
+  .usage('$0 [<options>] files...')
   .option('context', {
     type: 'string',
     desc: 'the context directory to shorten path, default is current directory',
@@ -34,7 +35,6 @@ const argv = yargs
     default: '.ts,.tsx,.mjs,.js,.jsx,.json',
   })
   .option('js', {
-    alias: 'J',
     type: 'string',
     desc: 'comma separated extensions indicate the file is js like',
     default: '.ts,.tsx,.mjs,.js,.jsx',
@@ -72,10 +72,16 @@ const argv = yargs
     type: 'string',
     desc:
       'the tsconfig path, which is used for resolve path alias, default is tsconfig.json if it exists in context directory',
-    alias: 't',
+  })
+  .option('transform', {
+    type: 'boolean',
+    desc:
+      'transform typescript modules to javascript before analyze, it allows you to omit types dependency in typescript',
+    default: false,
+    alias: 'T',
   })
   .alias('h', 'help')
-  .wrap(Math.min(yargs.terminalWidth(), 120)).argv;
+  .wrap(Math.min(yargs.terminalWidth(), 100)).argv;
 
 if (argv._.length === 0) {
   yargs.showHelp();
@@ -111,6 +117,7 @@ const options: ParseOptions = {
   include: new RegExp(argv.include || '.*'),
   exclude: new RegExp(argv.exclude || '$.'),
   tsconfig: argv.tsconfig,
+  transform: argv.transform,
   onProgress,
 };
 
@@ -144,7 +151,15 @@ parseDependencyTree(argv._, options)
     }
     if (argv.circular) {
       console.log(chalk.bold.red('• Circular Dependencies'));
-      console.log(prettyCircular(circulars));
+      if (circulars.length === 0) {
+        console.log(
+          chalk.bold.green(
+            '  ✅ Congratulations, no circular dependency were found in your project.',
+          ),
+        );
+      } else {
+        console.log(prettyCircular(circulars));
+      }
       console.log('');
     }
     if (argv.warning) {
