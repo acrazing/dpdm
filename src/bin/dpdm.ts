@@ -124,7 +124,7 @@ const options: ParseOptions = {
 
 parseDependencyTree(argv._, options)
   .then(async (tree) => {
-    o.stop();
+    o.succeed(`[${ended}/${total}] Analyze done!`);
     const entriesDeep = await Promise.all(argv._.map((g) => glob(g)));
     const entries = await Promise.all(
       Array<string>()
