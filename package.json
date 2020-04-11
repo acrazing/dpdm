@@ -1,6 +1,6 @@
 {
   "name": "dpdm",
-  "version": "3.4.2",
+  "version": "3.4.3",
   "description": "Analyze circular dependencies in your JavaScript/TypeScript projects.",
   "keywords": [
     "circular",

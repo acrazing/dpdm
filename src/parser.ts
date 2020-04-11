@@ -155,7 +155,15 @@ export async function parseDependencyTree(
       if (module && module.extension !== ts.Extension.Dts) {
         return module.resolvedFileName;
       } else {
-        return simpleResolver(context, request, extensions);
+        const filename = await simpleResolver(context, request, extensions);
+        if (filename === null && module) {
+          return simpleResolver(
+            context,
+            module.resolvedFileName.slice(0, -ts.Extension.Dts.length),
+            extensions,
+          );
+        }
+        return filename;
       }
     };
   }

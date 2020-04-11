@@ -12,6 +12,7 @@ import yargs from 'yargs';
 import { parseDependencyTree } from '../parser';
 import { ParseOptions } from '../types';
 import {
+  defaultOptions,
   glob,
   parseCircular,
   parseWarnings,
@@ -23,7 +24,7 @@ import {
 
 const argv = yargs
   .strict()
-  .usage('$0 [<options>] files...')
+  .usage('$0 [options] files...')
   .option('context', {
     type: 'string',
     desc: 'the context directory to shorten path, default is current directory',
@@ -32,21 +33,23 @@ const argv = yargs
     alias: 'ext',
     type: 'string',
     desc: 'comma separated extensions to resolve',
-    default: '.ts,.tsx,.mjs,.js,.jsx,.json',
+    default: defaultOptions.extensions.filter(Boolean).join(','),
   })
   .option('js', {
     type: 'string',
     desc: 'comma separated extensions indicate the file is js like',
-    default: '.ts,.tsx,.mjs,.js,.jsx',
+    default: defaultOptions.js.join(','),
   })
   .option('include', {
     type: 'string',
-    desc: 'included filenames regexp in string',
+    desc: 'included filenames regexp in string, default includes all files',
+    default: defaultOptions.include.source,
   })
   .option('exclude', {
     type: 'string',
-    desc: 'excluded filenames regexp in string',
-    default: '/node_modules/',
+    desc:
+      'excluded filenames regexp in string, set as empty string to include all files',
+    default: defaultOptions.exclude.source,
   })
   .option('output', {
     alias: 'o',
@@ -77,7 +80,7 @@ const argv = yargs
     type: 'boolean',
     desc:
       'transform typescript modules to javascript before analyze, it allows you to omit types dependency in typescript',
-    default: false,
+    default: defaultOptions.transform,
     alias: 'T',
   })
   .alias('h', 'help')

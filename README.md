@@ -25,7 +25,7 @@ dpdm --help
 ## Usage in line
 
 ```bash
-dpdm.ts [<options>] files...
+dpdm [options] files...
 
 Options:
   --version            Show version number                                                 [boolean]
@@ -34,8 +34,10 @@ Options:
                                                   [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
   --js                 comma separated extensions indicate the file is js like
                                                         [string] [default: ".ts,.tsx,.mjs,.js,.jsx"]
-  --include            included filenames regexp in string                                  [string]
-  --exclude            excluded filenames regexp in string      [string] [default: "/node_modules/"]
+  --include            included filenames regexp in string, default includes all files
+                                                                            [string] [default: ".*"]
+  --exclude            excluded filenames regexp in string, set as empty string to include all files
+                                                              [string] [default: "\/node_modules\/"]
   --output, -o         output json to file                                                  [string]
   --tree               print tree to stdout                                [boolean] [default: true]
   --circular           print circular to stdout                            [boolean] [default: true]
