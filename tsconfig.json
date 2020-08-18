@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es5",
-    "module": "esnext",
+    "target": "es2015",
+    "module": "commonjs",
     "lib": ["esnext", "dom"],
     "allowJs": false,
     "jsx": "react",

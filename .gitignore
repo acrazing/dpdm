@@ -21,3 +21,4 @@ local-*
 *.tgz
 .idea/
 .vscode/
+dist/
