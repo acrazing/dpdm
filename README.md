@@ -7,8 +7,7 @@ A static dependencies analyzer for your `JavaScript` and `TypeScript` projects.
 - Supports `CommonJS`, `ESM`.
 - Supports `JavaScript` and `TypeScript` completely.
   - Supports TypeScript [path mapping](https://www.typescriptlang.org/docs/handbook/module-resolution.html#path-mapping).
-  - Supports ignore type dependency by transpile TypeScript to JavaScript
-  - Supports detect static dependency only by evaluate TypeScript AST
+  - Supports ignore TypeScript type dependency
 - Light weight: use [typescript](https://npmjs.com/package/typescript) to parse all modules.
 - Fast: use asynchronous API to load modules.
 - Stable output: This is compared to madge, whose results are completely inconclusive when analyze `TypeScript`.
@@ -23,7 +22,7 @@ npm i -g dpdm # or yarn global add dpdm
 dpdm --help
 ```
 
-## Usage in command line
+## Usage in line
 
 ```bash
 dpdm [options] files...

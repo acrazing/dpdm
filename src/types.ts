@@ -14,7 +14,6 @@ export interface ParseOptions {
   tsconfig: string | undefined;
   onProgress: (event: 'start' | 'end', target: string) => void;
   transform: boolean;
-  static: boolean;
 }
 
 export interface Dependency {

@@ -83,13 +83,6 @@ const argv = yargs
     default: defaultOptions.transform,
     alias: 'T',
   })
-  .option('static', {
-    type: 'boolean',
-    desc:
-      'experimental feature, detect static circular dependency only by evaluate TypeScript AST',
-    alias: 'S',
-    default: defaultOptions.static,
-  })
   .alias('h', 'help')
   .wrap(Math.min(yargs.terminalWidth(), 100)).argv;
 
@@ -129,7 +122,6 @@ const options: ParseOptions = {
   exclude: new RegExp(argv.exclude || '$.'),
   tsconfig: argv.tsconfig,
   transform: argv.transform,
-  static: argv.static,
   onProgress,
 };
 
