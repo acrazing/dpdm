@@ -83,6 +83,13 @@ const argv = yargs
     default: defaultOptions.transform,
     alias: 'T',
   })
+  .option('exit-code', {
+    type: 'string',
+    desc:
+      'exit with specified code, the value format is CASE:CODE, `circular` is the only supported CASE, ' +
+      'CODE should be a integer between 0 and 128. ' +
+      'For example: `dpdm --exit-code circular:1` the program will exit with code 1 if circular dependency found.',
+  })
   .alias('h', 'help')
   .wrap(Math.min(yargs.terminalWidth(), 100)).argv;
 
@@ -90,6 +97,21 @@ if (argv._.length === 0) {
   yargs.showHelp();
   console.log('\nMissing entry file');
   process.exit(1);
+}
+
+const exitCases = new Set(['circular']);
+const exitCodes: [string, number][] = [];
+if (argv['exit-code']) {
+  argv['exit-code'].split(',').forEach((c) => {
+    const [label, code] = c.split(':');
+    if (!code || !isFinite(+code)) {
+      throw new TypeError(`exit code should be a number`);
+    }
+    if (!exitCases.has(label)) {
+      throw new TypeError(`unsupported exit case "${label}"`);
+    }
+    exitCodes.push([label, +code]);
+  });
 }
 
 const o = ora('Loading dependencies...').start();
@@ -170,6 +192,14 @@ parseDependencyTree(argv._, options)
       console.log(chalk.bold.yellow('• Warnings'));
       console.log(prettyWarning(parseWarnings(tree)));
       console.log('');
+    }
+    for (const [label, code] of exitCodes) {
+      switch (label) {
+        case 'circular':
+          if (circulars.length > 0) {
+            process.exit(code);
+          }
+      }
     }
   })
   .catch((e: Error) => {

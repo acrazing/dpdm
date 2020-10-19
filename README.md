@@ -25,7 +25,7 @@ dpdm --help
 ## Usage in line
 
 ```bash
-dpdm [options] files...
+dpdm.ts [options] files...
 
 Options:
   --version            Show version number                                                 [boolean]
@@ -46,6 +46,10 @@ Options:
                        tsconfig.json if it exists in context directory                      [string]
   --transform, -T      transform typescript modules to javascript before analyze, it allows you to
                        omit types dependency in typescript                [boolean] [default: false]
+  --exit-code          exit with specified code, the value format is CASE:CODE, `circular` is the
+                       only supported CASE, CODE should be a integer between 0 and 128. For example:
+                       `dpdm --exit-code circular:1` the program will exit with code 1 if circular
+                       dependency found.                                                    [string]
   -h, --help           Show help                                                           [boolean]
 ```
 
