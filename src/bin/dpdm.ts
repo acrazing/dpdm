@@ -90,6 +90,11 @@ const argv = yargs
       'CODE should be a integer between 0 and 128. ' +
       'For example: `dpdm --exit-code circular:1` the program will exit with code 1 if circular dependency found.',
   })
+  .option('progress', {
+    type: 'boolean',
+    desc: 'show progress bar',
+    default: process.stdout.isTTY && !process.env.CI,
+  })
   .alias('h', 'help')
   .wrap(Math.min(yargs.terminalWidth(), 100)).argv;
 
@@ -114,7 +119,7 @@ if (argv['exit-code']) {
   });
 }
 
-const o = ora('Loading dependencies...').start();
+const o = ora('Start analyzing dependencies...').start();
 
 let total = 0;
 let ended = 0;
@@ -132,8 +137,10 @@ function onProgress(event: 'start' | 'end', target: string) {
       ended += 1;
       break;
   }
-  o.text = `[${ended}/${total}] Analyzing ${current}...`;
-  o.render();
+  if (argv.progress) {
+    o.text = `[${ended}/${total}] Analyzing ${current}...`;
+    o.render();
+  }
 }
 
 const options: ParseOptions = {
@@ -147,10 +154,12 @@ const options: ParseOptions = {
   onProgress,
 };
 
-parseDependencyTree(argv._, options)
+const files = argv._.filter((t) => typeof t === 'string') as string[];
+
+parseDependencyTree(files, options)
   .then(async (tree) => {
     o.succeed(`[${ended}/${total}] Analyze done!`);
-    const entriesDeep = await Promise.all(argv._.map((g) => glob(g)));
+    const entriesDeep = await Promise.all(files.map((g) => glob(g)));
     const entries = await Promise.all(
       Array<string>()
         .concat(...entriesDeep)
