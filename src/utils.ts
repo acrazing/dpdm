@@ -20,7 +20,7 @@ export const defaultOptions: ParseOptions = {
   extensions: ['', '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json'],
   js: ['.ts', '.tsx', '.mjs', '.js', '.jsx'],
   include: /.*/,
-  exclude: /\/node_modules\//,
+  exclude: /node_modules/,
   tsconfig: void 0,
   transform: false,
   onProgress: () => void 0,
