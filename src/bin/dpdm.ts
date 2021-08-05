@@ -25,7 +25,18 @@ import {
 async function main() {
   const argv = await yargs
     .strict()
-    .usage('$0 [options] files...')
+    .usage(
+      '$0 [options] <files...>',
+      "Analyze the files' dependencies.",
+      (yargs) => {
+        return yargs.positional('files', {
+          description: 'The file paths or globs',
+          demandOption: true,
+          type: 'string',
+          array: true,
+        });
+      },
+    )
     .option('context', {
       type: 'string',
       desc: 'the context directory to shorten path, default is current directory',
@@ -96,7 +107,9 @@ async function main() {
     .alias('h', 'help')
     .wrap(Math.min(yargs.terminalWidth(), 100)).argv;
 
-  if (argv._.length === 0) {
+  const files = argv.files as string[];
+
+  if (files.length === 0) {
     yargs.showHelp();
     console.log('\nMissing entry file');
     process.exit(1);
@@ -151,8 +164,6 @@ async function main() {
     transform: argv.transform,
     onProgress,
   };
-
-  const files = argv._.filter((t) => typeof t === 'string') as string[];
 
   parseDependencyTree(files, options)
     .then(async (tree) => {
