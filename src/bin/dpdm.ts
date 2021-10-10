@@ -198,7 +198,7 @@ async function main() {
         if (circulars.length === 0) {
           console.log(
             chalk.bold.green(
-              '  ✅ Congratulations, no circular dependency were found in your project.',
+              '  ✅ Congratulations, no circular dependency was found in your project.',
             ),
           );
         } else {
