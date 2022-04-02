@@ -12,16 +12,16 @@ describe('util', () => {
     const local = await simpleResolver(__dirname, './bin/dpdm', ext);
     const index = await simpleResolver(__dirname, '.', ext);
     // dependents on yarn.lock
-    const pkg = await simpleResolver(__dirname, 'expect', ext);
-    const deepPkg = await simpleResolver(dirname(pkg!), 'ansi-styles', ext);
+    const pkg = await simpleResolver(__dirname, 'string_decoder', ext);
+    const deepPkg = await simpleResolver(dirname(pkg!), 'safe-buffer', ext);
     const notFound = await simpleResolver(__dirname, './utils.tsx', ext);
     expect([local, index, pkg, deepPkg, notFound]).toEqual([
       join(__dirname, 'bin/dpdm.ts'),
       join(__dirname, 'index.ts'),
-      join(__dirname, '../node_modules/expect/build/index.js'),
+      join(__dirname, '../node_modules/string_decoder/lib/string_decoder.js'),
       join(
         __dirname,
-        '../node_modules/expect/node_modules/ansi-styles/index.js',
+        '../node_modules/string_decoder/node_modules/safe-buffer/index.js',
       ),
       null,
     ]);

@@ -1,62 +1,128 @@
-# dpdm
+<h1 align="center">
+    DPDM
+    <br/>
+    <img src="https://img.shields.io/npm/v/dpdm" alt="version">
+    <img src="https://img.shields.io/npm/dm/dpdm" alt="downloads">
+    <img src="https://img.shields.io/github/stars/acrazing/dpdm" alt="stars">
+    <img src="https://img.shields.io/librariesio/github/acrazing/dpdm" alt="dependencies">
+    <img src="https://img.shields.io/github/license/acrazing/dpdm" alt="license">
+</h1>
 
-A static dependencies analyzer for your `JavaScript` and `TypeScript` projects.
+<p align="center">A robust static dependency analyzer for your <code>JavaScript</code> and <code>TypeScript</code> projects.</p>
 
-## Features
+<p align="center">
+    <a href="#highlights">Highlights</a>
+    <span>&nbsp;|&nbsp;</span>
+    <a href="#install">Install</a>
+    <span>&nbsp;|&nbsp;</span>
+    <a href="#usage-in-command-line">Usage</a>
+    <span>&nbsp;|&nbsp;</span>
+    <a href="#options">Options</a>
+    <span>&nbsp;|&nbsp;</span>
+    <a href="#usage-as-a-package">API</a>
+</p>
+
+## Highlights
 
 - Supports `CommonJS`, `ESM`.
 - Supports `JavaScript` and `TypeScript` completely.
   - Supports TypeScript [path mapping](https://www.typescriptlang.org/docs/handbook/module-resolution.html#path-mapping).
-  - Supports ignore TypeScript type dependency
-- Light weight: use [typescript](https://npmjs.com/package/typescript) to parse all modules.
+  - Supports ignore TypeScript type dependencies.
+- Light weight: use [TypeScript](https://npmjs.com/package/typescript) to parse all modules.
 - Fast: use asynchronous API to load modules.
-- Stable output: This is compared to madge, whose results are completely inconclusive when analyze `TypeScript`.
+- Stable output: This is compared to `madge`, whose results are completely inconclusive when analyze `TypeScript`.
 
 ## Install
 
+1. For command line
+
+   ```bash
+   npm i -g dpdm
+   # or via yarn
+   yarn global add dpdm
+   ```
+
+2. As a module
+
+   ```bash
+   npm i -D dpdm
+   # or via yarn
+   yarn add -D dpdm
+   ```
+
+## Usage in command line
+
+1. Simple usage
+
+   ```bash
+   dpdm ./src/index.ts
+   ```
+
+2. Print circular dependencies only
+
+   ```bash
+   dpdm --no-warning --no-tree ./src/index.ts
+   ```
+
+3. Exit with a non-zero code if a circular dependency is found.
+
+   ```bash
+   dpdm --exit-code circular:1 ./src/index.ts
+   ```
+
+4. Ignore type dependencies for TypeScript modules
+
+   ```bash
+   dpdm -T ./src/index.ts
+   ```
+
+### Options
+
 ```bash
-npm i dpdm # or yarn add dpdm
+$ dpdm --help
+dpdm [options] <files...>
 
-# use as command line
-npm i -g dpdm # or yarn global add dpdm
-dpdm --help
-```
+Analyze the files' dependencies.
 
-## Usage in line
-
-```bash
-dpdm.ts [options] files...
+Positionals:
+  files  The file paths or globs                                                  [string]
 
 Options:
-  --version            Show version number                                                 [boolean]
-  --context            the context directory to shorten path, default is current directory  [string]
-  --extensions, --ext  comma separated extensions to resolve
-                                                  [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
-  --js                 comma separated extensions indicate the file is js like
-                                                        [string] [default: ".ts,.tsx,.mjs,.js,.jsx"]
-  --include            included filenames regexp in string, default includes all files
-                                                                            [string] [default: ".*"]
-  --exclude            excluded filenames regexp in string, set as empty string to include all files
-                                                              [string] [default: "\/node_modules\/"]
-  --output, -o         output json to file                                                  [string]
-  --tree               print tree to stdout                                [boolean] [default: true]
-  --circular           print circular to stdout                            [boolean] [default: true]
-  --warning            print warning to stdout                             [boolean] [default: true]
-  --tsconfig           the tsconfig path, which is used for resolve path alias, default is
-                       tsconfig.json if it exists in context directory                      [string]
-  --transform, -T      transform typescript modules to javascript before analyze, it allows you to
-                       omit types dependency in typescript                [boolean] [default: false]
-  --exit-code          exit with specified code, the value format is CASE:CODE, `circular` is the
-                       only supported CASE, CODE should be a integer between 0 and 128. For example:
-                       `dpdm --exit-code circular:1` the program will exit with code 1 if circular
-                       dependency found.                                                    [string]
-  -h, --help           Show help                                                           [boolean]
+      --version            Show version number                                   [boolean]
+      --context            the context directory to shorten path, default is current
+                           directory                                              [string]
+      --extensions, --ext  comma separated extensions to resolve
+                                        [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
+      --js                 comma separated extensions indicate the file is js like
+                                              [string] [default: ".ts,.tsx,.mjs,.js,.jsx"]
+      --include            included filenames regexp in string, default includes all files
+                                                                  [string] [default: ".*"]
+      --exclude            excluded filenames regexp in string, set as empty string to
+                           include all files            [string] [default: "node_modules"]
+  -o, --output             output json to file                                    [string]
+      --tree               print tree to stdout                  [boolean] [default: true]
+      --circular           print circular to stdout              [boolean] [default: true]
+      --warning            print warning to stdout               [boolean] [default: true]
+      --tsconfig           the tsconfig path, which is used for resolve path alias,
+                           default is tsconfig.json if it exists in context directory
+                                                                                  [string]
+  -T, --transform          transform typescript modules to javascript before analyze, it
+                           allows you to omit types dependency in typescript
+                                                                [boolean] [default: false]
+      --exit-code          exit with specified code, the value format is CASE:CODE,
+                           `circular` is the only supported CASE, CODE should be a integer
+                           between 0 and 128. For example: `dpdm --exit-code circular:1`
+                           the program will exit with code 1 if circular dependency found.
+                                                                                  [string]
+      --progress           show progress bar                     [boolean] [default: true]
+  -h, --help               Show help                                             [boolean]
 ```
 
-> The result example:
-> ![](./assets/screenshot.png)
+### Example output
 
-## Usage in module
+![Screenshot](./assets/screenshot.png)
+
+## Usage as a package
 
 ```typescript jsx
 import { parseDependencyTree, parseCircular, prettyCircular } from 'dpdm';
@@ -69,7 +135,7 @@ parseDependencyTree('./index', {
 });
 ```
 
-## API
+### API Reference
 
 1. `parseDependencyTree(entries, option, output)`: parse dependencies for glob entries
 
@@ -118,12 +184,8 @@ parseDependencyTree('./index', {
    export declare function parseCircular(tree: DependencyTree): string[][];
    ```
 
-## TODO
+## TODOs
 
 - [ ] Supports HTML and HTML like modules
 - [ ] Supports CSS and CSS like modules
 - [ ] Prints interactive SVG
-
-## LICENSE
-
-[MIT](./LICENSE)
