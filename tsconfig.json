@@ -36,7 +36,8 @@
     "pretty": true,
     "allowUnreachableCode": false,
     "stripInternal": true,
-    "allowUnusedLabels": false
+    "allowUnusedLabels": false,
+    "skipLibCheck": true
   },
   "include": ["./src/**/*.d.ts", "./src/**/*.ts", "./src/**/*.tsx"]
 }
