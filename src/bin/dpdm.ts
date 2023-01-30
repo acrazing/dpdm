@@ -104,6 +104,10 @@ async function main() {
       desc: 'show progress bar',
       default: process.stdout.isTTY && !process.env.CI,
     })
+    .option('detect-unused-files-from', {
+      type: 'string',
+      desc: 'this file is a glob, used for finding unused files',
+    })
     .alias('h', 'help')
     .wrap(Math.min(yargs.terminalWidth(), 100)).argv;
 
@@ -210,6 +214,28 @@ async function main() {
         console.log(chalk.bold.yellow('• Warnings'));
         console.log(prettyWarning(parseWarnings(tree)));
         console.log('');
+      }
+      if (argv.detectUnusedFilesFrom) {
+        const allFiles = await glob(argv.detectUnusedFilesFrom);
+        const shortAllFiles = allFiles.map((v) => path.relative(context, v));
+        const unusedFiles = shortAllFiles.filter((v) => !(v in tree)).sort();
+        console.log(chalk.bold.cyan('• Unused files'));
+        if (unusedFiles.length === 0) {
+          console.log(
+            chalk.bold.green(
+              '  ✅ Congratulations, no unused file was found in your project. (total: ' +
+                allFiles.length +
+                ', used: ' +
+                Object.keys(tree).length +
+                ')',
+            ),
+          );
+        } else {
+          const len = unusedFiles.length.toString().length;
+          unusedFiles.forEach((f, i) => {
+            console.log('%s) %s', i.toString().padStart(len, '0'), f);
+          });
+        }
       }
       for (const [label, code] of exitCodes) {
         switch (label) {

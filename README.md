@@ -76,46 +76,52 @@
    dpdm -T ./src/index.ts
    ```
 
+5. Find unused files by `index.js` in `src` directory:
+
+   ```bash
+   dpdm --no-tree --no-warning --no-circular --detect-unused-files-from 'src/**/*.*' 'index.js'
+   ```
+
 ### Options
 
 ```bash
 $ dpdm --help
-dpdm [options] <files...>
+dpdm.ts [options] <files...>
 
 Analyze the files' dependencies.
 
 Positionals:
-  files  The file paths or globs                                                  [string]
+  files  The file paths or globs                                                            [string]
 
 Options:
-      --version            Show version number                                   [boolean]
-      --context            the context directory to shorten path, default is current
-                           directory                                              [string]
-      --extensions, --ext  comma separated extensions to resolve
-                                        [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
-      --js                 comma separated extensions indicate the file is js like
-                                              [string] [default: ".ts,.tsx,.mjs,.js,.jsx"]
-      --include            included filenames regexp in string, default includes all files
-                                                                  [string] [default: ".*"]
-      --exclude            excluded filenames regexp in string, set as empty string to
-                           include all files            [string] [default: "node_modules"]
-  -o, --output             output json to file                                    [string]
-      --tree               print tree to stdout                  [boolean] [default: true]
-      --circular           print circular to stdout              [boolean] [default: true]
-      --warning            print warning to stdout               [boolean] [default: true]
-      --tsconfig           the tsconfig path, which is used for resolve path alias,
-                           default is tsconfig.json if it exists in context directory
-                                                                                  [string]
-  -T, --transform          transform typescript modules to javascript before analyze, it
-                           allows you to omit types dependency in typescript
-                                                                [boolean] [default: false]
-      --exit-code          exit with specified code, the value format is CASE:CODE,
-                           `circular` is the only supported CASE, CODE should be a integer
-                           between 0 and 128. For example: `dpdm --exit-code circular:1`
-                           the program will exit with code 1 if circular dependency found.
-                                                                                  [string]
-      --progress           show progress bar                     [boolean] [default: true]
-  -h, --help               Show help                                             [boolean]
+      --version                   Show version number                                      [boolean]
+      --context                   the context directory to shorten path, default is current
+                                  directory                                                 [string]
+      --extensions, --ext         comma separated extensions to resolve
+                                                  [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
+      --js                        comma separated extensions indicate the file is js like
+                                                        [string] [default: ".ts,.tsx,.mjs,.js,.jsx"]
+      --include                   included filenames regexp in string, default includes all files
+                                                                            [string] [default: ".*"]
+      --exclude                   excluded filenames regexp in string, set as empty string to
+                                  include all files               [string] [default: "node_modules"]
+  -o, --output                    output json to file                                       [string]
+      --tree                      print tree to stdout                     [boolean] [default: true]
+      --circular                  print circular to stdout                 [boolean] [default: true]
+      --warning                   print warning to stdout                  [boolean] [default: true]
+      --tsconfig                  the tsconfig path, which is used for resolve path alias, default
+                                  is tsconfig.json if it exists in context directory        [string]
+  -T, --transform                 transform typescript modules to javascript before analyze, it
+                                  allows you to omit types dependency in typescript
+                                                                          [boolean] [default: false]
+      --exit-code                 exit with specified code, the value format is CASE:CODE,
+                                  `circular` is the only supported CASE, CODE should be a integer
+                                  between 0 and 128. For example: `dpdm --exit-code circular:1` the
+                                  program will exit with code 1 if circular dependency found.
+                                                                                            [string]
+      --progress                  show progress bar                        [boolean] [default: true]
+      --detect-unused-files-from  this file is a glob, used for finding unused files        [string]
+  -h, --help                      Show help                                                [boolean]
 ```
 
 ### Example output
