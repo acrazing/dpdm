@@ -1,4 +1,3 @@
-node_modules/
 .cache/
 build/
 temp/
@@ -23,3 +22,4 @@ local-*
 .vscode/
 dist/
 coverage/
+/node_modules

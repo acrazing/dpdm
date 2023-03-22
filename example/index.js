@@ -6,3 +6,4 @@
 require('../src');
 require('./circular_a');
 require('./cannot_resolve');
+require('./node_modules/include');
