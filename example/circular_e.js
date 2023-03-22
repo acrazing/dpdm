@@ -3,6 +3,4 @@
  * @since 2019-07-18 14:44:49
  */
 
-require('./circular_a');
-import('./circular_b');
-import('./circular_e');
+require('./circular_d');

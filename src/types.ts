@@ -14,6 +14,7 @@ export interface ParseOptions {
   tsconfig: string | undefined;
   onProgress: (event: 'start' | 'end', target: string) => void;
   transform: boolean;
+  skipDynamicImports: boolean;
 }
 
 export interface Dependency {

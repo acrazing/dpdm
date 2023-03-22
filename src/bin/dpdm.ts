@@ -106,7 +106,12 @@ async function main() {
     })
     .option('detect-unused-files-from', {
       type: 'string',
-      desc: 'this file is a glob, used for finding unused files',
+      desc: 'this file is a glob, used for finding unused files.',
+    })
+    .option('skip-dynamic-imports', {
+      type: 'string',
+      choices: ['tree', 'circular'],
+      desc: 'Skip parse import(...) statement.',
     })
     .alias('h', 'help')
     .wrap(Math.min(yargs.terminalWidth(), 100)).argv;
@@ -166,6 +171,7 @@ async function main() {
     exclude: new RegExp(argv.exclude || '$.'),
     tsconfig: argv.tsconfig,
     transform: argv.transform,
+    skipDynamicImports: argv.skipDynamicImports === 'tree',
     onProgress,
   };
 
@@ -184,7 +190,10 @@ async function main() {
             ).then((id) => (id ? path.relative(options.context!, id) : name)),
           ),
       );
-      const circulars = parseCircular(tree);
+      const circulars = parseCircular(
+        tree,
+        argv.skipDynamicImports === 'circular',
+      );
       if (argv.output) {
         await fs.outputJSON(
           argv.output,

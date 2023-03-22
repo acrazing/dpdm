@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import fs from 'fs-extra';
 import { builtinModules } from 'module';
 import path from 'path';
+import { DependencyKind } from './consts';
 import { Dependency, DependencyTree, ParseOptions } from './types';
 
 const allBuiltins = new Set(builtinModules);
@@ -19,6 +20,7 @@ export const defaultOptions: ParseOptions = {
   exclude: /node_modules/,
   tsconfig: void 0,
   transform: false,
+  skipDynamicImports: false,
   onProgress: () => void 0,
 };
 
@@ -125,7 +127,10 @@ export function shortenTree(
   return output;
 }
 
-export function parseCircular(tree: DependencyTree): string[][] {
+export function parseCircular(
+  tree: DependencyTree,
+  skipDynamicImports: boolean = false,
+): string[][] {
   const circulars: string[][] = [];
 
   tree = { ...tree };
@@ -140,7 +145,12 @@ export function parseCircular(tree: DependencyTree): string[][] {
       delete tree[id];
       deps &&
         deps.forEach((dep) => {
-          dep.id && visit(dep.id, used.slice());
+          if (
+            dep.id &&
+            (!skipDynamicImports || dep.kind !== DependencyKind.DynamicImport)
+          ) {
+            visit(dep.id, used.slice());
+          }
         });
     }
   }

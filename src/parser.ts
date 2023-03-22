@@ -57,7 +57,8 @@ async function parseTreeRecursive(
       ts.isCallExpression(node) &&
       node.expression.kind === ts.SyntaxKind.ImportKeyword &&
       node.arguments.length === 1 &&
-      ts.isStringLiteral(node.arguments[0])
+      ts.isStringLiteral(node.arguments[0]) &&
+      !options.skipDynamicImports
     ) {
       newRequest = (node.arguments[0] as ts.StringLiteral).text;
       kind = DependencyKind.DynamicImport;

@@ -82,11 +82,20 @@
    dpdm --no-tree --no-warning --no-circular --detect-unused-files-from 'src/**/*.*' 'index.js'
    ```
 
+6. Skip dynamic imports:
+
+   ```bash
+   # The value circular will only ignore the dynamic imports
+   # when parse circular references.
+   # You can set it as tree to ignore the dynamic imports
+   # when parse source files.
+   dpdm --skip-dynamic-imports circular index.js
+   ```
+
 ### Options
 
 ```bash
-$ dpdm --help
-dpdm.ts [options] <files...>
+dpdm [options] <files...>
 
 Analyze the files' dependencies.
 
@@ -120,7 +129,9 @@ Options:
                                   program will exit with code 1 if circular dependency found.
                                                                                             [string]
       --progress                  show progress bar                        [boolean] [default: true]
-      --detect-unused-files-from  this file is a glob, used for finding unused files        [string]
+      --detect-unused-files-from  this file is a glob, used for finding unused files.       [string]
+      --skip-dynamic-imports      Skip parse import(...) statement.
+                                                              [string] [choices: "tree", "circular"]
   -h, --help                      Show help                                                [boolean]
 ```
 
