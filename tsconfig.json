@@ -30,7 +30,6 @@
     "esModuleInterop": true,
     "resolveJsonModule": false,
     "experimentalDecorators": true,
-    "charset": "utf-8",
     "emitBOM": false,
     "newLine": "LF",
     "pretty": true,

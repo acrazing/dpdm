@@ -4,12 +4,12 @@
  */
 
 import fs from 'fs-extra';
+import G from 'glob';
 import path from 'path';
 import ts from 'typescript';
 import { DependencyKind } from './consts';
 import { Dependency, DependencyTree, ParseOptions } from './types';
 import {
-  glob,
   normalizeOptions,
   Resolver,
   shortenTree,
@@ -169,7 +169,7 @@ export async function parseDependencyTree(
   }
   await Promise.all(
     entries.map((entry) =>
-      glob(entry).then((matches) =>
+      G.glob(entry).then((matches) =>
         Promise.all(
           matches.map((filename) =>
             parseTreeRecursive(

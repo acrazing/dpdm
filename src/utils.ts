@@ -5,15 +5,11 @@
 
 import chalk from 'chalk';
 import fs from 'fs-extra';
-import G from 'glob';
 import { builtinModules } from 'module';
 import path from 'path';
-import util from 'util';
 import { Dependency, DependencyTree, ParseOptions } from './types';
 
 const allBuiltins = new Set(builtinModules);
-
-export const glob = util.promisify(G);
 
 export const defaultOptions: ParseOptions = {
   context: process.cwd(),

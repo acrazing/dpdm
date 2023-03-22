@@ -6,6 +6,7 @@
 
 import chalk from 'chalk';
 import fs from 'fs-extra';
+import G from 'glob';
 import ora from 'ora';
 import path from 'path';
 import yargs from 'yargs';
@@ -13,7 +14,6 @@ import { parseDependencyTree } from '../parser';
 import { ParseOptions } from '../types';
 import {
   defaultOptions,
-  glob,
   parseCircular,
   parseWarnings,
   prettyCircular,
@@ -172,7 +172,7 @@ async function main() {
   parseDependencyTree(files, options)
     .then(async (tree) => {
       o.succeed(`[${ended}/${total}] Analyze done!`);
-      const entriesDeep = await Promise.all(files.map((g) => glob(g)));
+      const entriesDeep = await Promise.all(files.map((g) => G.glob(g)));
       const entries = await Promise.all(
         Array<string>()
           .concat(...entriesDeep)
@@ -216,7 +216,7 @@ async function main() {
         console.log('');
       }
       if (argv.detectUnusedFilesFrom) {
-        const allFiles = await glob(argv.detectUnusedFilesFrom);
+        const allFiles = await G.glob(argv.detectUnusedFilesFrom);
         const shortAllFiles = allFiles.map((v) => path.relative(context, v));
         const unusedFiles = shortAllFiles.filter((v) => !(v in tree)).sort();
         console.log(chalk.bold.cyan('• Unused files'));
