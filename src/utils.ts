@@ -120,7 +120,7 @@ export function shortenTree(
               ...item,
               issuer: shortKey,
               id: item.id === null ? null : path.relative(context, item.id),
-            } as Dependency),
+            }) as Dependency,
         )
       : null;
   }
@@ -286,4 +286,16 @@ export function prettyWarning(warnings: string[], prefix = '  ') {
       );
     })
     .join('\n');
+}
+
+export function isEmpty(v: unknown) {
+  if (v == null) {
+    return true;
+  }
+  for (const k in v) {
+    if (v.hasOwnProperty(k)) {
+      return false;
+    }
+  }
+  return true;
 }

@@ -6,7 +6,7 @@
 
 import chalk from 'chalk';
 import fs from 'fs-extra';
-import G from 'glob';
+import * as G from 'glob';
 import ora from 'ora';
 import path from 'path';
 import yargs from 'yargs';
@@ -14,6 +14,7 @@ import { parseDependencyTree } from '../parser';
 import { ParseOptions } from '../types';
 import {
   defaultOptions,
+  isEmpty,
   parseCircular,
   parseWarnings,
   prettyCircular,
@@ -177,6 +178,9 @@ async function main() {
 
   parseDependencyTree(files, options)
     .then(async (tree) => {
+      if (isEmpty(tree)) {
+        throw new Error(`No entry files were matched.`);
+      }
       o.succeed(`[${ended}/${total}] Analyze done!`);
       const entriesDeep = await Promise.all(files.map((g) => G.glob(g)));
       const entries = await Promise.all(

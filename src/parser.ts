@@ -4,7 +4,7 @@
  */
 
 import fs from 'fs-extra';
-import G from 'glob';
+import * as G from 'glob';
 import path from 'path';
 import ts from 'typescript';
 import { DependencyKind } from './consts';
