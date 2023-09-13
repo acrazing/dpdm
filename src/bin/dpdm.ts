@@ -211,7 +211,11 @@ async function main() {
         console.log('');
       }
       if (argv.circular) {
-        console.log(chalk.bold.red('• Circular Dependencies'));
+        console.log(
+          chalk.bold[circulars.length === 0 ? 'green' : 'red'](
+            '• Circular Dependencies',
+          ),
+        );
         if (circulars.length === 0) {
           console.log(
             chalk.bold.green(
