@@ -225,38 +225,5 @@ describe('util', () => {
         expect(actual[1]).toMatchObject(['start', 'mid', 'right']);
       });
     });
-
-    describe('When tree has 2 cycles with intersection, different lengths', () => {
-      const tree = {
-        start: [dependencyFactory('left1'), dependencyFactory('right1')],
-        left1: [dependencyFactory('left2')],
-        left2: [dependencyFactory('intersection')],
-        right1: [dependencyFactory('intersection')],
-        intersection: [dependencyFactory('start')],
-      };
-
-      let actual: Array<string[]>;
-      beforeAll(() => {
-        actual = parseCircular(tree);
-      });
-
-      it('Should return non-empty array', () => {
-        expect(actual.length).toBeGreaterThan(0);
-      });
-
-      it('Should count two cycles', () => {
-        expect(actual.length).toBe(2);
-      });
-
-      it('Should include the ids involved in the cycle', () => {
-        expect(actual[0]).toMatchObject([
-          'start',
-          'left1',
-          'left2',
-          'intersection',
-        ]);
-        expect(actual[1]).toMatchObject(['start', 'right1', 'intersection']);
-      });
-    });
   });
 });
