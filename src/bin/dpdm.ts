@@ -201,7 +201,7 @@ async function main() {
       if (argv.output) {
         await fs.outputJSON(
           argv.output,
-          { entries, tree, circulars },
+          { entries, tree: argv.tree ? tree : undefined, circulars: argv.circular ? circular : undefined },
           { spaces: 2 },
         );
       }
