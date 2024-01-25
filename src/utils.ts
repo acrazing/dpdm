@@ -127,38 +127,75 @@ export function shortenTree(
   return output;
 }
 
+function areCyclicPermutations<T>(oneArray: T[], otherArray: T[]) {
+  if (oneArray.length !== otherArray.length) {
+    return false;
+  }
+  const concatenatedArr = [...oneArray, ...oneArray];
+  for (let i = 0; i < concatenatedArr.length - otherArray.length + 1; i++) {
+    if (
+      concatenatedArr
+        .slice(i, i + otherArray.length)
+        .every((val, index) => val === otherArray[index])
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+class SetOfCyclicPermutations<T> {
+  private cycles: T[][] = [];
+
+  push(cycle: T[]) {
+    if (this.cycles.some((c) => areCyclicPermutations(c, cycle))) {
+      return;
+    }
+
+    this.cycles.push(cycle);
+  }
+
+  get uniqueCycles() {
+    return this.cycles;
+  }
+}
+
 export function parseCircular(
   tree: DependencyTree,
   skipDynamicImports: boolean = false,
 ): string[][] {
-  const circulars: string[][] = [];
+  const circulars = new SetOfCyclicPermutations<string>();
+  const visited: Record<string, boolean> = {};
+  const stack: string[] = [];
 
-  tree = { ...tree };
-
-  function visit(id: string, used: string[]) {
-    const index = used.indexOf(id);
-    if (index > -1) {
-      circulars.push(used.slice(index));
-    } else if (tree[id]) {
-      used.push(id);
-      const deps = tree[id];
-      delete tree[id];
-      deps &&
-        deps.forEach((dep) => {
-          if (
-            dep.id &&
-            (!skipDynamicImports || dep.kind !== DependencyKind.DynamicImport)
-          ) {
-            visit(dep.id, used.slice());
-          }
-        });
+  function visit(id: string): void {
+    if (visited[id]) {
+      const cycleStartIdx = stack.indexOf(id);
+      circulars.push(stack.slice(cycleStartIdx));
+      return;
     }
+
+    visited[id] = true;
+    stack.push(id);
+
+    for (const neighbor of tree[id] || []) {
+      if (
+        neighbor.id &&
+        (!skipDynamicImports || neighbor.kind !== DependencyKind.DynamicImport)
+      ) {
+        visit(neighbor.id);
+      }
+    }
+
+    stack.pop();
+    visited[id] = false;
   }
 
   for (const id in tree) {
-    visit(id, []);
+    visit(id);
   }
-  return circulars;
+
+  return circulars.uniqueCycles;
 }
 
 export function parseDependents(
