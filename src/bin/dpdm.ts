@@ -7,7 +7,7 @@
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import * as G from 'glob';
-import ora from 'ora';
+// import ora from 'ora';
 import path from 'path';
 import yargs from 'yargs';
 import { parseDependencyTree } from '../parser';
@@ -140,7 +140,7 @@ async function main() {
     });
   }
 
-  const o = ora('Start analyzing dependencies...').start();
+  // const o = ora('Start analyzing dependencies...').start();
 
   let total = 0;
   let ended = 0;
@@ -159,8 +159,8 @@ async function main() {
         break;
     }
     if (argv.progress) {
-      o.text = `[${ended}/${total}] Analyzing ${current}...`;
-      o.render();
+      // o.text = `[${ended}/${total}] Analyzing ${current}...`;
+      // o.render();
     }
   }
 
@@ -178,10 +178,11 @@ async function main() {
 
   parseDependencyTree(files, options)
     .then(async (tree) => {
+      console.log('tree: ', tree);
       if (isEmpty(tree)) {
         throw new Error(`No entry files were matched.`);
       }
-      o.succeed(`[${ended}/${total}] Analyze done!`);
+      // o.succeed(`[${ended}/${total}] Analyze done!`);
       const entriesDeep = await Promise.all(files.map((g) => G.glob(g)));
       const entries = await Promise.all(
         Array<string>()
@@ -264,7 +265,7 @@ async function main() {
       }
     })
     .catch((e: Error) => {
-      o.fail();
+      // o.fail();
       console.error(e.stack || e);
       process.exit(1);
     });

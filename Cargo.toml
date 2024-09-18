@@ -1,0 +1,17 @@
+[package]
+name = "dpdm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.17", features = ["derive"] }  # 用于命令行参数解析
+glob = "0.3"  # 用于文件路径匹配
+serde_json = "1.0"  # 用于 JSON 处理
+tokio = { version = "1.0", features = ["full"] }
+indicatif = "0.16"
+regex = "1"
+swc_common = "0.38"
+swc_ecma_parser = "0.150"
+swc_ecma_visit = "0.105"
+swc_ecma_transforms = "0.241"
+swc_ecma_ast = "0.119"

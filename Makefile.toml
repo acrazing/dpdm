@@ -1,0 +1,2 @@
+[tasks.dev]
+script = ["cargo build", "./target/debug/dpdm ./example/index.js"]
