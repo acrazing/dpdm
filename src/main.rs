@@ -2,10 +2,11 @@ mod parser;
 mod utils;
 
 use clap::Parser;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::ProgressBar;
 use parser::parser::parse_dependency_tree;
 use regex::Regex;
 use std::collections::HashSet;
+use std::fs::File;
 use std::path::Path;
 
 use parser::types::ParseOptions;
@@ -162,10 +163,21 @@ async fn main() {
         }
     }
 
-    let options: ParseOptions = ParseOptions {
+    let mut extensions: Vec<String> = args
+        .extensions
+        .split(',')
+        .map(|s| format!(".{}", s))
+        .collect();
+    extensions.insert(0, String::from(""));
+    let options = ParseOptions {
         context,
-        extensions: args.extensions.split(',').map(String::from).collect(),
-        js: args.js.split(',').map(String::from).collect(),
+        extensions,
+        js: args
+            .js
+            .split(',')
+            .map(String::from)
+            .map(|s| format!(".{}", s))
+            .collect(),
         include: Regex::new(&args.include).unwrap_or_else(|_| Regex::new(".*").unwrap()),
         exclude: Regex::new(&args.exclude).unwrap_or_else(|_| Regex::new("$").unwrap()),
         tsconfig: args.tsconfig.clone(),
@@ -174,7 +186,10 @@ async fn main() {
         on_progress, // 使用之前定义的 on_progress 函数
     };
 
-    println!("files: {:?}", files); // 使用 {:?} 格式化 Vec<String>
-    let dependency_tree = parse_dependency_tree(files);
-    println!("dependency_tree: {:?}", dependency_tree);
+    println!("files: {:?}", files);
+    println!("options: {:?}", options);
+    let dependency_tree = parse_dependency_tree(files, options).await;
+
+    let file = File::create("tree-rs.json").expect("Failed to create file");
+    serde_json::to_writer_pretty(file, &dependency_tree).expect("Failed to write JSON");
 }
