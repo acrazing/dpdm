@@ -11,7 +11,7 @@ where
     serializer.serialize_str(&regex.to_string())
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, Clone)]
 pub struct ParseOptions {
     pub context: String,
     pub extensions: Vec<String>,
@@ -40,4 +40,9 @@ pub struct OutputResult {
     pub entries: Vec<String>,
     pub tree: DependencyTree,
     pub circulars: Vec<Vec<String>>,
+}
+
+pub struct Alias {
+    pub base_url: String,
+    pub paths: HashMap<String, Vec<String>>,
 }

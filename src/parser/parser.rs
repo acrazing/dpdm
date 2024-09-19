@@ -1,6 +1,7 @@
 use super::consts::DependencyKind;
-use super::types::{Dependency, ParseOptions};
+use super::types::{Alias, Dependency, ParseOptions};
 use crate::parser::types::DependencyTree;
+use crate::utils::options::normalize_options;
 use crate::utils::resolver::simple_resolver;
 use crate::utils::shorten::shorten_tree;
 use glob::glob;
@@ -12,7 +13,70 @@ use swc_ecma_ast::Callee;
 use swc_ecma_parser::{Parser, StringInput, Syntax, TsSyntax};
 use swc_ecma_visit::{Visit, VisitWith};
 
-pub async fn parse_dependency_tree(entries: &Vec<String>, options: &ParseOptions) -> DependencyTree {
+pub async fn parse_dependency_tree(
+    entries: &Vec<String>,
+    base_options: &ParseOptions,
+) -> DependencyTree {
+    let options: ParseOptions = normalize_options(Some((*base_options).clone()));
+
+    let tsconfig_json = match options.tsconfig.clone() {
+        Some(tsconfig) => {
+            let tsconfig_data: serde_json::Value = match fs::read_to_string(PathBuf::from(tsconfig))
+            {
+                Ok(content) => match serde_json::from_str(&content) {
+                    Ok(json) => json,
+                    Err(e) => {
+                        eprintln!("Failed to parse tsconfig.json: {:?}", e);
+                        return HashMap::new();
+                    }
+                },
+                Err(e) => {
+                    eprintln!("Failed to read tsconfig.json: {:?}", e);
+                    return HashMap::new();
+                }
+            };
+            tsconfig_data
+        }
+        None => {
+            return HashMap::new();
+        }
+    };
+
+    let base_url = match tsconfig_json
+        .get("compilerOptions")
+        .and_then(|co| co.get("baseUrl"))
+        .and_then(|bu| bu.as_str())
+    {
+        Some(base_url) => base_url,
+        None => "",
+    };
+
+    let paths = match tsconfig_json
+        .get("compilerOptions")
+        .and_then(|co| co.get("paths"))
+    {
+        Some(paths) => paths,
+        None => &serde_json::Value::Null,
+    };
+
+    let alias: Alias = Alias {
+        base_url: base_url.to_string(),
+        paths: paths
+            .as_object()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| {
+                let values = v
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|val| val.as_str().unwrap().to_string())
+                    .collect();
+                (k.clone(), values)
+            })
+            .collect(),
+    };
+
     let mut output: DependencyTree = HashMap::new();
     let cm = Lrc::new(SourceMap::default());
 
@@ -29,6 +93,7 @@ pub async fn parse_dependency_tree(entries: &Vec<String>, options: &ParseOptions
                         &mut output,
                         &cm,
                         &options,
+                        &alias,
                     )
                     .await;
                 }
@@ -47,11 +112,13 @@ async fn parse_tree_recursive(
     output: &mut DependencyTree,
     cm: &Lrc<SourceMap>,
     options: &ParseOptions,
+    alias: &Alias,
 ) -> Option<String> {
     let id: Option<String> = match simple_resolver(
         &context.to_string_lossy().to_string(),
         &path.to_string_lossy().to_string(),
         &options.extensions,
+        Some(&alias),
     )
     .await
     {
@@ -135,8 +202,15 @@ async fn parse_tree_recursive(
     for dep in &collector.dependencies {
         let path: PathBuf = PathBuf::from(dep.request.clone());
         let new_context: PathBuf = new_context.clone();
-        let dep: Option<String> =
-            Box::pin(parse_tree_recursive(new_context, path, output, cm, options)).await;
+        let dep: Option<String> = Box::pin(parse_tree_recursive(
+            new_context,
+            path,
+            output,
+            cm,
+            options,
+            alias,
+        ))
+        .await;
         deps.push(dep);
     }
 

@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use std::fs;
 
+use crate::parser::types::Alias;
 use crate::utils::path::join_paths;
 use node_resolve::resolve_from;
 
@@ -46,7 +47,28 @@ pub async fn simple_resolver(
     context: &str,
     request: &str,
     extensions: &Vec<String>,
+    alias: Option<&Alias>,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    if let Some(alias) = alias {
+        for (key, paths) in &alias.paths {
+            if request.starts_with(key) {
+                for path in paths {
+                    let new_request = request.replacen(key, path, 1);
+                    let result = Box::pin(simple_resolver(
+                        context,
+                        &new_request,
+                        extensions,
+                        Some(alias),
+                    ))
+                    .await?;
+                    if result.is_some() {
+                        return Ok(result);
+                    }
+                }
+            }
+        }
+    }
+
     if Path::new(&request).is_absolute() {
         let result = append_suffix(&request, &extensions).await;
         return result;

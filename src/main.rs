@@ -132,9 +132,9 @@ async fn main() {
     // pb.enable_steady_tick(100);
     // pb.finish_with_message("Analysis complete!");
 
-    let mut total: i32 = 0;
-    let mut ended: i32 = 0;
-    let mut current: String = String::new();
+    // let mut total: i32 = 0;
+    // let mut ended: i32 = 0;
+    // let mut current: String = String::new();
 
     let context: String = args.context.as_ref().map(|s| s.clone()).unwrap_or_else(|| {
         std::env::current_dir()
@@ -190,6 +190,8 @@ async fn main() {
         on_progress, // 使用之前定义的 on_progress 函数
     };
 
+    println!("args.tsconfig: {:?}", args.tsconfig);
+
     let dependency_tree = parse_dependency_tree(&files, &options).await;
 
     if utils::tree::is_empty(&dependency_tree) {
@@ -221,7 +223,7 @@ async fn main() {
             let _clone_name: String = name.to_string_lossy().into_owned();
 
             async move {
-                simple_resolver(&_context, &params_name, &_extensions)
+                simple_resolver(&_context, &params_name, &_extensions, None)
                     .await
                     .map(|id| id.unwrap_or(_clone_name))
             }
@@ -230,8 +232,29 @@ async fn main() {
         .into_iter()
         .collect();
 
+    let clone_dependency_tree = dependency_tree.clone();
+
     let circulars = utils::tree::parse_circular(dependency_tree, options.skip_dynamic_imports);
 
-    // let file = File::create("tree-rs.json").expect("Failed to create file");
-    // serde_json::to_writer_pretty(file, &dependency_tree).expect("Failed to write JSON");
+    if circulars.is_empty() {
+        println!("No circular dependencies found. {:?}", circulars);
+    } else {
+        println!("Circular dependencies found: {:?}", circulars);
+    }
+
+    for (label, code) in exit_codes {
+        match label.as_str() {
+            "circular" => {
+                if !circulars.is_empty() {
+                    std::process::exit(code);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let file = File::create("tree-rs.json").expect("Failed to create file");
+    serde_json::to_writer_pretty(file, &clone_dependency_tree).expect("Failed to write JSON");
+
+    println!("Analyze done!");
 }
