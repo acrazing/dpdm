@@ -3,9 +3,8 @@ use std::path::{Path, PathBuf};
 use std::fs;
 
 use crate::utils::path::join_paths;
-use node_resolve::{resolve, resolve_from};
+use node_resolve::resolve_from;
 
-// TODO: node_modules 检测 & 动态导入
 pub async fn append_suffix(
     request: &str,
     extensions: &[String],
@@ -59,33 +58,39 @@ pub async fn simple_resolver(
     }
 
     let base_dir = PathBuf::from(&context);
+    let pkg_path = Path::new(&request)
+        .join("package.json")
+        .to_string_lossy()
+        .into_owned();
     // 处理 package 的情况
-    match resolve_from(&context, base_dir) {
+    match resolve_from(&pkg_path, base_dir.clone()) {
         Ok(resolved_path) => {
-            println!("pkgPath: {:?}", resolved_path);
             let pkg_json: serde_json::Value =
                 serde_json::from_str(&fs::read_to_string(&resolved_path)?)?;
             if let Some(main) = pkg_json.get("main").or_else(|| pkg_json.get("module")) {
-                let id = Path::new(&resolved_path)
-                    .parent()
-                    .unwrap()
-                    .join(main.as_str().unwrap())
-                    .to_string_lossy()
-                    .into_owned();
-                return append_suffix(&id, &extensions).await;
+                // let id = Path::new(&resolved_path)
+                //     .parent()
+                //     .unwrap()
+                //     .join(main.as_str().unwrap())
+                //     .to_string_lossy()
+                //     .into_owned();
+
+                let main_path: PathBuf = Path::new(main.as_str().unwrap()).to_path_buf();
+                let parent_path: PathBuf = resolved_path.parent().unwrap().to_path_buf();
+                let id: PathBuf = join_paths(&[&parent_path, &main_path]);
+                return append_suffix(&id.to_string_lossy().into_owned(), &extensions).await;
             }
         }
         Err(_) => {}
     }
 
-    // 尝试直接解析请求
-    for path in &[context] {
-      let full_path = Path::new(path).join(&request);
-      if full_path.exists() {
-          return Ok(Some(full_path.to_string_lossy().into_owned()));
-      }
-  }
-
+    match resolve_from(&request, base_dir) {
+        Ok(resolved_path) => {
+            let result = resolved_path.to_string_lossy().into_owned();
+            return Ok(Some(result));
+        }
+        Err(_) => {}
+    }
 
     Ok(None)
 }

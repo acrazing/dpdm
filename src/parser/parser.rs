@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use swc_common::{sync::Lrc, FileName, SourceMap};
+use swc_ecma_ast::Callee;
 use swc_ecma_parser::{Parser, StringInput, Syntax, TsSyntax};
 use swc_ecma_visit::{Visit, VisitWith};
 
@@ -38,7 +39,6 @@ pub async fn parse_dependency_tree(entries: Vec<String>, options: ParseOptions) 
     }
 
     shorten_tree(current_directory.to_string_lossy().to_string(), output)
-    // output
 }
 
 /// 递归解析文件中的依赖
@@ -75,16 +75,29 @@ async fn parse_tree_recursive(
         }
     };
 
-    // if !options.include.is_match(&id) || options.exclude.is_match(&id) {
-    //     output.insert(id.clone(), None);
-    //     return Some(id.clone());
-    // }
+    if !options.include.is_match(&id) || options.exclude.is_match(&id) {
+        output.insert(id.clone(), None);
+        return Some(id.clone());
+    }
 
-    // let ext = path.extension().unwrap().to_string_lossy().to_string();
-    // if !options.js.contains(&ext) {
-    //     output.insert(id.clone(), None);
-    //     return Some(id.clone());
-    // }
+    match Path::new(&id).extension() {
+        Some(ext) => {
+            let ext: String = if ext.to_string_lossy().to_string() == "" {
+                String::new()
+            } else {
+                format!(".{}", ext.to_string_lossy().to_string())
+            };
+            println!("ext: {:?}", ext);
+            if !options.js.contains(&ext) {
+                output.insert(id.clone(), Some(Vec::new()));
+                return Some(id.clone());
+            }
+        }
+        None => {
+            output.insert(id.clone(), Some(Vec::new()));
+            return Some(id.clone());
+        }
+    }
 
     let file_content = fs::read_to_string(&id).expect("Unable to read file");
     let id_path: PathBuf = Path::new(&id).to_path_buf();
@@ -159,6 +172,21 @@ impl Visit for DependencyCollector {
     }
 
     fn visit_call_expr(&mut self, expr: &swc_ecma_ast::CallExpr) {
+        if let Callee::Import(_) = &expr.callee {
+            if let Some(arg) = expr.args.get(0) {
+                if let swc_ecma_ast::Expr::Lit(swc_ecma_ast::Lit::Str(ref s)) = *arg.expr {
+                    let request = s.value.to_string();
+                    let dependency = Dependency {
+                        issuer: self.path.to_string_lossy().to_string(),
+                        request,
+                        kind: DependencyKind::DynamicImport,
+                        id: Some(self.id.clone()),
+                    };
+                    self.dependencies.push(dependency);
+                }
+            }
+        }
+
         if let swc_ecma_ast::Callee::Expr(ref callee_expr) = expr.callee {
             // 处理 CommonJS 导入
             if let swc_ecma_ast::Expr::Ident(ref ident) = &**callee_expr {
@@ -177,23 +205,8 @@ impl Visit for DependencyCollector {
                     }
                 }
             }
-            // 处理动态导入
-            else if let swc_ecma_ast::Callee::Import(..) = expr.callee {
-                println!("| export visit_call_expr: {:?}", expr);
-                if let Some(arg) = expr.args.get(0) {
-                    if let swc_ecma_ast::Expr::Lit(swc_ecma_ast::Lit::Str(ref s)) = *arg.expr {
-                        let request = s.value.to_string();
-                        let dependency = Dependency {
-                            issuer: self.path.to_string_lossy().to_string(),
-                            request,
-                            kind: DependencyKind::DynamicImport,
-                            id: Some(self.id.clone()),
-                        };
-                        self.dependencies.push(dependency);
-                    }
-                }
-            }
         }
+        expr.visit_children_with(self);
     }
 
     fn visit_export_named_specifier(&mut self, export: &swc_ecma_ast::ExportNamedSpecifier) {
@@ -214,39 +227,12 @@ impl Visit for DependencyCollector {
         }
     }
 
-    fn visit_export_default_specifier(&mut self, export: &swc_ecma_ast::ExportDefaultSpecifier) {
-        // 处理默认导出
-        let dependency = Dependency {
-            issuer: self.path.to_string_lossy().to_string(),
-            request: String::new(),
-            kind: DependencyKind::StaticExport,
-            id: Some(self.id.clone()),
-        };
-
-        // Add the default export dependency to the list
-        self.dependencies.push(dependency);
-    }
-
     fn visit_export_all(&mut self, node: &swc_ecma_ast::ExportAll) {
-        println!("| export visit_export_all: {:?}", node);
-
         let request = node.src.value.to_string();
         let dependency = Dependency {
             issuer: self.path.to_string_lossy().to_string(),
             request,
             kind: DependencyKind::StaticExport,
-            id: Some(self.id.clone()),
-        };
-        self.dependencies.push(dependency);
-    }
-
-    fn visit_import(&mut self, node: &swc_ecma_ast::Import) {
-        // DynamicImport
-        let request = format!("{:?}", node.phase);
-        let dependency = Dependency {
-            issuer: self.path.to_string_lossy().to_string(),
-            request,
-            kind: DependencyKind::DynamicImport,
             id: Some(self.id.clone()),
         };
         self.dependencies.push(dependency);
