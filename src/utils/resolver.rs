@@ -43,9 +43,9 @@ async fn append_suffix_boxed(
 }
 
 pub async fn simple_resolver(
-    context: String,
-    request: String,
-    extensions: Vec<String>,
+    context: &str,
+    request: &str,
+    extensions: &Vec<String>,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     if Path::new(&request).is_absolute() {
         let result = append_suffix(&request, &extensions).await;

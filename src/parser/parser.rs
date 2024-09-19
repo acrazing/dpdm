@@ -12,7 +12,7 @@ use swc_ecma_ast::Callee;
 use swc_ecma_parser::{Parser, StringInput, Syntax, TsSyntax};
 use swc_ecma_visit::{Visit, VisitWith};
 
-pub async fn parse_dependency_tree(entries: Vec<String>, options: ParseOptions) -> DependencyTree {
+pub async fn parse_dependency_tree(entries: &Vec<String>, options: &ParseOptions) -> DependencyTree {
     let mut output: DependencyTree = HashMap::new();
     let cm = Lrc::new(SourceMap::default());
 
@@ -20,7 +20,6 @@ pub async fn parse_dependency_tree(entries: Vec<String>, options: ParseOptions) 
     // 获取文件列表
     for entry in entries {
         for entry_path in glob(&entry).expect("Failed to read glob pattern") {
-            println!("entry_path: {:?}", entry_path);
             match entry_path {
                 Ok(filename) => {
                     let path: PathBuf = current_directory.join(filename);
@@ -50,9 +49,9 @@ async fn parse_tree_recursive(
     options: &ParseOptions,
 ) -> Option<String> {
     let id: Option<String> = match simple_resolver(
-        context.to_string_lossy().to_string(),
-        path.to_string_lossy().to_string(),
-        options.extensions.clone(),
+        &context.to_string_lossy().to_string(),
+        &path.to_string_lossy().to_string(),
+        &options.extensions,
     )
     .await
     {
@@ -87,7 +86,6 @@ async fn parse_tree_recursive(
             } else {
                 format!(".{}", ext.to_string_lossy().to_string())
             };
-            println!("ext: {:?}", ext);
             if !options.js.contains(&ext) {
                 output.insert(id.clone(), Some(Vec::new()));
                 return Some(id.clone());
@@ -139,7 +137,6 @@ async fn parse_tree_recursive(
         let new_context: PathBuf = new_context.clone();
         let dep: Option<String> =
             Box::pin(parse_tree_recursive(new_context, path, output, cm, options)).await;
-        println!("dep: {:?}", dep);
         deps.push(dep);
     }
 

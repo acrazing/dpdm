@@ -2,12 +2,15 @@ mod parser;
 mod utils;
 
 use clap::Parser;
+use glob::glob;
 use indicatif::ProgressBar;
 use parser::parser::parse_dependency_tree;
 use regex::Regex;
 use std::collections::HashSet;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use utils::path::join_paths;
+use utils::resolver::simple_resolver;
 
 use parser::types::ParseOptions;
 
@@ -139,6 +142,7 @@ async fn main() {
             .to_string_lossy()
             .into_owned()
     });
+
     fn on_progress(
         event: &str,
         target: &str,
@@ -186,10 +190,48 @@ async fn main() {
         on_progress, // 使用之前定义的 on_progress 函数
     };
 
-    println!("files: {:?}", files);
-    println!("options: {:?}", options);
-    let dependency_tree = parse_dependency_tree(files, options).await;
+    let dependency_tree = parse_dependency_tree(&files, &options).await;
 
-    let file = File::create("tree-rs.json").expect("Failed to create file");
-    serde_json::to_writer_pretty(file, &dependency_tree).expect("Failed to write JSON");
+    if utils::tree::is_empty(&dependency_tree) {
+        println!("No entry files were matched.");
+        std::process::exit(1);
+    }
+
+    let entries_deep = futures::future::join_all(files.iter().map(|g: &String| {
+        let _g = g.clone();
+        async move {
+            glob(&_g)
+                .expect("Failed to read glob pattern")
+                .filter_map(Result::ok)
+                .collect::<Vec<_>>()
+        }
+    }))
+    .await;
+
+    let entries: Vec<_> =
+        futures::future::join_all(entries_deep.into_iter().flatten().map(|name| {
+            let path_context: PathBuf = PathBuf::from(options.context.clone());
+            let _context: String = options.context.clone();
+            let _extensions: Vec<String> = options.extensions.clone();
+
+            let params_name: String = join_paths(&[&path_context, &name])
+                .to_string_lossy()
+                .into_owned();
+
+            let _clone_name: String = name.to_string_lossy().into_owned();
+
+            async move {
+                simple_resolver(&_context, &params_name, &_extensions)
+                    .await
+                    .map(|id| id.unwrap_or(_clone_name))
+            }
+        }))
+        .await
+        .into_iter()
+        .collect();
+
+    let circulars = utils::tree::parse_circular(dependency_tree, options.skip_dynamic_imports);
+
+    // let file = File::create("tree-rs.json").expect("Failed to create file");
+    // serde_json::to_writer_pretty(file, &dependency_tree).expect("Failed to write JSON");
 }
