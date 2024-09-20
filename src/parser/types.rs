@@ -1,14 +1,44 @@
 use crate::parser::consts::DependencyKind;
-use indicatif::ProgressBar;
 use regex::Regex;
 use serde::{self, Serializer};
-use std::{collections::HashMap, path::PathBuf};
+use spinoff::Spinner;
+use std::{
+    collections::HashMap,
+    fmt,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 fn serialize_regex<S>(regex: &Regex, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
     serializer.serialize_str(&regex.to_string())
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub enum IsModule {
+    Bool(bool),
+    Unknown,
+}
+
+#[derive(Clone)]
+pub struct Progress {
+    pub total: Arc<Mutex<i32>>,
+    pub current: Arc<Mutex<String>>,
+    pub ended: Arc<Mutex<i32>>,
+    pub spinner: Arc<Mutex<Spinner>>,
+}
+
+impl fmt::Debug for Progress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Progress")
+            .field("total", &self.total)
+            .field("current", &self.current)
+            .field("ended", &self.ended)
+            .field("spinner", &"Spinner") // 手动调用 DebugSpinner 的 fmt
+            .finish()
+    }
 }
 
 #[derive(Debug, serde::Serialize, Clone)]
@@ -22,9 +52,10 @@ pub struct ParseOptions {
     pub exclude: Regex,
     pub tsconfig: Option<String>,
     #[serde(skip)]
-    pub on_progress: fn(&str, &str, &mut usize, &mut usize, &mut String, &ProgressBar), // 更新函数指针类型
+    pub progress: Option<Progress>,
     pub transform: bool,
     pub skip_dynamic_imports: bool,
+    pub is_module: IsModule, // 是否是 ESM 模块
 }
 
 #[derive(Debug, serde::Serialize, Clone)]
@@ -35,12 +66,6 @@ pub struct Dependency {
     pub id: Option<String>,
 }
 pub type DependencyTree = HashMap<String, Option<Vec<Dependency>>>;
-
-// pub struct OutputResult {
-//     pub entries: Vec<String>,
-//     pub tree: DependencyTree,
-//     pub circulars: Vec<Vec<String>>,
-// }
 
 pub struct Alias {
     pub root: PathBuf,

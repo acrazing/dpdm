@@ -1,4 +1,4 @@
-use crate::parser::types::ParseOptions;
+use crate::parser::types::{IsModule, ParseOptions};
 use regex::Regex;
 use std::path::PathBuf;
 
@@ -29,8 +29,19 @@ pub fn normalize_options(options: Option<ParseOptions>) -> ParseOptions {
         tsconfig: None,
         transform: false,
         skip_dynamic_imports: false,
-        on_progress: |_, _, _, _, _, _| {},
+        progress: None,
+        is_module: IsModule::Unknown,
     };
+
+    // TODO: 目前打开之后无法处理混合模块
+    // let package_path = PathBuf::from(&new_options.context).join("package.json");
+    // if package_path.is_file() {
+    //     let package_json = fs::read_to_string(package_path).unwrap();
+    //     let package_json: serde_json::Value = serde_json::from_str(&package_json).unwrap();
+    //     if let Some(package_type) = package_json.get("type") {
+    //         new_options.is_module = IsModule::Bool(package_type == "module");
+    //     }
+    // }
 
     if let Some(opts) = options {
         new_options.extensions.extend(opts.extensions);
@@ -38,7 +49,7 @@ pub fn normalize_options(options: Option<ParseOptions>) -> ParseOptions {
         new_options.tsconfig = opts.tsconfig;
         new_options.transform = opts.transform;
         new_options.skip_dynamic_imports = opts.skip_dynamic_imports;
-        new_options.on_progress = opts.on_progress;
+        new_options.progress = opts.progress;
     }
 
     if !new_options.extensions.contains(&"".to_string()) {

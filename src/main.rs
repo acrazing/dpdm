@@ -3,17 +3,18 @@ mod utils;
 
 use clap::Parser;
 use glob::glob;
-use indicatif::ProgressBar;
 use parser::parser::parse_dependency_tree;
 use regex::Regex;
 use serde_json::json;
+use spinoff::{spinners, Color, Spinner};
 use std::collections::HashSet;
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use utils::path::join_paths;
 use utils::resolver::simple_resolver;
 
-use parser::types::ParseOptions;
+use parser::types::{IsModule, ParseOptions, Progress};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -51,16 +52,16 @@ struct Args {
     output: Option<String>,
 
     /// Print tree to stdout
-    #[arg(long, default_value = "true")]
-    tree: bool,
+    #[arg(long, default_value = "false")]
+    no_tree: bool,
 
     /// Print circular to stdout
     #[arg(long, default_value = "true")]
     circular: bool,
 
     /// Print warning to stdout
-    #[arg(long, default_value = "true")]
-    warning: bool,
+    #[arg(long, default_value = "false")]
+    no_warning: bool,
 
     /// The tsconfig path, which is used for resolve path alias
     #[arg(long)]
@@ -76,7 +77,7 @@ struct Args {
 
     /// Show progress bar
     #[arg(long, default_value = "true")]
-    progress: bool,
+    no_progress: bool,
 
     /// This file is a glob, used for finding unused files
     #[arg(long)]
@@ -122,20 +123,11 @@ async fn main() {
         }
     }
 
-    // let pb: ProgressBar = ProgressBar::new(100); // 假设总进度为100，可以根据实际情况调整
-    // pb.set_style(
-    //     ProgressStyle::default_bar()
-    //         .template("{msg} [{bar:40}] {percent}%")
-    //         .progress_chars("##-"),
-    // );
-
-    // pb.set_message("Start analyzing dependencies...");
-    // pb.enable_steady_tick(100);
-    // pb.finish_with_message("Analysis complete!");
-
-    // let mut total: i32 = 0;
-    // let mut ended: i32 = 0;
-    // let mut current: String = String::new();
+    let spinner = Arc::new(Mutex::new(Spinner::new(
+        spinners::Dots,
+        "Start analyzing dependencies...",
+        Color::Green,
+    )));
 
     let context: String = args.context.as_ref().map(|s| s.clone()).unwrap_or_else(|| {
         std::env::current_dir()
@@ -144,29 +136,14 @@ async fn main() {
             .into_owned()
     });
 
-    fn on_progress(
-        event: &str,
-        target: &str,
-        total: &mut usize,
-        ended: &mut usize,
-        current: &mut String,
-        progress_bar: &ProgressBar,
-    ) {
-        match event {
-            "start" => {
-                *total += 1;
-                *current = Path::new(target).display().to_string(); // 使用相对路径
-            }
-            "end" => {
-                *ended += 1;
-            }
-            _ => {}
-        }
-        if !progress_bar.is_hidden() {
-            let message = format!("[{}/{}] Analyzing {}...", *ended, *total, current);
-            progress_bar.set_message(message);
-        }
-    }
+    let no_progress = args.no_progress;
+
+    let progress = Progress {
+        total: Arc::new(Mutex::new(0)),
+        current: Arc::new(Mutex::new(String::new())),
+        ended: Arc::new(Mutex::new(0)),
+        spinner,
+    };
 
     let mut extensions: Vec<String> = args
         .extensions
@@ -188,7 +165,11 @@ async fn main() {
         tsconfig: args.tsconfig.clone(),
         transform: args.transform,
         skip_dynamic_imports: args.skip_dynamic_imports.as_deref() == Some("tree"),
-        on_progress,
+        is_module: IsModule::Unknown,
+        progress: match no_progress {
+            true => None,
+            false => Some(progress),
+        },
     };
 
     let mut dependency_tree = parse_dependency_tree(&files, &options).await;

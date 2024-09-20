@@ -1,5 +1,5 @@
 use super::consts::DependencyKind;
-use super::types::{Alias, Dependency, ParseOptions};
+use super::types::{Alias, Dependency, IsModule, ParseOptions};
 use crate::parser::types::DependencyTree;
 use crate::utils::options::normalize_options;
 use crate::utils::path::join_paths;
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use swc_common::{sync::Lrc, FileName, SourceMap};
-use swc_ecma_ast::Callee;
+use swc_ecma_ast::{Callee, Program};
 use swc_ecma_parser::{Parser, StringInput, Syntax, TsSyntax};
 use swc_ecma_visit::{Visit, VisitWith};
 
@@ -168,6 +168,27 @@ async fn parse_tree_recursive(
         }
     }
 
+    if let Some(progress) = &options.progress {
+        {
+            let mut total = progress.total.lock().unwrap();
+            *total += 1;
+        }
+        {
+            let mut current = progress.current.lock().unwrap();
+            *current = id.clone();
+        }
+        {
+            let mut spinner = progress.spinner.lock().unwrap();
+            let text = format!(
+                "[{}/{}] Analyzing {}...",
+                *progress.ended.lock().unwrap(),
+                *progress.total.lock().unwrap(),
+                *progress.current.lock().unwrap()
+            );
+            spinner.update_text(text);
+        }
+    }
+
     let file_content = fs::read_to_string(&id).expect("Unable to read file");
     let id_path: PathBuf = Path::new(&id).to_path_buf();
 
@@ -186,7 +207,20 @@ async fn parse_tree_recursive(
     );
 
     let mut parser: Parser<swc_ecma_parser::lexer::Lexer<'_>> = Parser::new_from(lexer);
-    let module: swc_ecma_ast::Module = parser.parse_module().expect("Failed to parse module");
+    let program_result = match options.is_module {
+        IsModule::Bool(true) => parser.parse_module().map(Program::Module),
+        IsModule::Bool(false) => parser.parse_script().map(Program::Script),
+        IsModule::Unknown => parser.parse_program(),
+    };
+
+    let program = match program_result {
+        Ok(program) => program,
+        Err(_err) => {
+            // eprintln!("Failed to parse program: {:?}", err);
+            return None;
+        }
+    };
+
     let new_context: PathBuf = Path::new(&id).parent().unwrap().to_path_buf();
 
     let dependencies: Vec<Dependency> = Vec::new();
@@ -200,7 +234,7 @@ async fn parse_tree_recursive(
     };
 
     // 遍历 AST
-    module.visit_with(&mut collector);
+    program.visit_with(&mut collector);
 
     let mut deps: Vec<_> = Vec::new();
     for dep in &collector.dependencies {
@@ -224,6 +258,23 @@ async fn parse_tree_recursive(
 
     // 将收集到的依赖存储到输出中
     output.insert(collector.id.clone(), Some(collector.dependencies));
+
+    if let Some(progress) = &options.progress {
+        {
+            let mut ended = progress.ended.lock().unwrap();
+            *ended += 1;
+        }
+        {
+            let mut spinner = progress.spinner.lock().unwrap();
+            let text = format!(
+                "[{}/{}] Analyzing {}...",
+                *progress.ended.lock().unwrap(),
+                *progress.total.lock().unwrap(),
+                *progress.current.lock().unwrap()
+            );
+            spinner.update_text(text);
+        }
+    }
     Some(collector.id.clone())
 }
 
