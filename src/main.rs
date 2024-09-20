@@ -6,6 +6,7 @@ use glob::glob;
 use indicatif::ProgressBar;
 use parser::parser::parse_dependency_tree;
 use regex::Regex;
+use serde_json::json;
 use std::collections::HashSet;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -187,59 +188,73 @@ async fn main() {
         tsconfig: args.tsconfig.clone(),
         transform: args.transform,
         skip_dynamic_imports: args.skip_dynamic_imports.as_deref() == Some("tree"),
-        on_progress, // 使用之前定义的 on_progress 函数
+        on_progress,
     };
 
-    println!("args.tsconfig: {:?}", args.tsconfig);
-
-    let dependency_tree = parse_dependency_tree(&files, &options).await;
+    let mut dependency_tree = parse_dependency_tree(&files, &options).await;
 
     if utils::tree::is_empty(&dependency_tree) {
         println!("No entry files were matched.");
         std::process::exit(1);
     }
 
-    let entries_deep = futures::future::join_all(files.iter().map(|g: &String| {
-        let _g = g.clone();
-        async move {
-            glob(&_g)
-                .expect("Failed to read glob pattern")
-                .filter_map(Result::ok)
-                .collect::<Vec<_>>()
+    let output = args.output.clone();
+    let entries = match output {
+        Some(_output) => {
+            let entries_deep = futures::future::join_all(files.iter().map(|g: &String| {
+                let _g = g.clone();
+                async move {
+                    glob(&_g)
+                        .expect("Failed to read glob pattern")
+                        .filter_map(Result::ok)
+                        .collect::<Vec<_>>()
+                }
+            }))
+            .await;
+            let entries: Vec<_> =
+                futures::future::join_all(entries_deep.into_iter().flatten().map(|name| {
+                    let path_context: PathBuf = PathBuf::from(options.context.clone());
+                    let _context: String = options.context.clone();
+                    let _extensions: Vec<String> = options.extensions.clone();
+
+                    let params_name: String = join_paths(&[&path_context, &name])
+                        .to_string_lossy()
+                        .into_owned();
+
+                    let _clone_name: String = name.to_string_lossy().into_owned();
+
+                    async move {
+                        simple_resolver(&_context, &params_name, &_extensions, None)
+                            .await
+                            .map(|id| id.unwrap_or(_clone_name))
+                            .unwrap_or_else(|e| format!("Error: {}", e))
+                    }
+                }))
+                .await
+                .into_iter()
+                .collect();
+
+            Some(entries)
         }
-    }))
-    .await;
+        None => None,
+    };
 
-    let entries: Vec<_> =
-        futures::future::join_all(entries_deep.into_iter().flatten().map(|name| {
-            let path_context: PathBuf = PathBuf::from(options.context.clone());
-            let _context: String = options.context.clone();
-            let _extensions: Vec<String> = options.extensions.clone();
-
-            let params_name: String = join_paths(&[&path_context, &name])
-                .to_string_lossy()
-                .into_owned();
-
-            let _clone_name: String = name.to_string_lossy().into_owned();
-
-            async move {
-                simple_resolver(&_context, &params_name, &_extensions, None)
-                    .await
-                    .map(|id| id.unwrap_or(_clone_name))
-            }
-        }))
-        .await
-        .into_iter()
-        .collect();
-
-    let clone_dependency_tree = dependency_tree.clone();
-
-    let circulars = utils::tree::parse_circular(dependency_tree, options.skip_dynamic_imports);
+    let circulars = utils::tree::parse_circular(&mut dependency_tree, options.skip_dynamic_imports);
 
     if circulars.is_empty() {
         println!("No circular dependencies found. {:?}", circulars);
     } else {
         println!("Circular dependencies found: {:?}", circulars);
+    }
+
+    if entries.is_some() {
+        let file = File::create(args.output.unwrap()).expect("Failed to create file");
+        let data = json!({
+            "entries": entries.unwrap(),
+            "tree": dependency_tree,
+            "circulars": circulars
+        });
+        serde_json::to_writer_pretty(file, &data).expect("Failed to write JSON");
     }
 
     for (label, code) in exit_codes {
@@ -252,9 +267,6 @@ async fn main() {
             _ => {}
         }
     }
-
-    let file = File::create("tree-rs.json").expect("Failed to create file");
-    serde_json::to_writer_pretty(file, &clone_dependency_tree).expect("Failed to write JSON");
 
     println!("Analyze done!");
 }

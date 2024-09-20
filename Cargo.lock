@@ -243,6 +243,7 @@ dependencies = [
  "futures",
  "glob",
  "indicatif",
+ "lazy_static",
  "node-resolve",
  "regex",
  "serde",

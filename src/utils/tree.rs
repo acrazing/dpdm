@@ -12,7 +12,7 @@ where
     }
 }
 
-pub fn parse_circular(mut tree: DependencyTree, skip_dynamic_imports: bool) -> Vec<Vec<String>> {
+pub fn parse_circular(tree: & mut DependencyTree, skip_dynamic_imports: bool) -> Vec<Vec<String>> {
     let mut circulars: Vec<Vec<String>> = Vec::new();
 
     fn visit(
@@ -43,7 +43,7 @@ pub fn parse_circular(mut tree: DependencyTree, skip_dynamic_imports: bool) -> V
         visit(
             id.clone(),
             Vec::new(),
-            &mut tree,
+            tree,
             skip_dynamic_imports,
             &mut circulars,
         );

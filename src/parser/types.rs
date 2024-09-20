@@ -2,7 +2,7 @@ use crate::parser::consts::DependencyKind;
 use indicatif::ProgressBar;
 use regex::Regex;
 use serde::{self, Serializer};
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 fn serialize_regex<S>(regex: &Regex, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -36,13 +36,13 @@ pub struct Dependency {
 }
 pub type DependencyTree = HashMap<String, Option<Vec<Dependency>>>;
 
-pub struct OutputResult {
-    pub entries: Vec<String>,
-    pub tree: DependencyTree,
-    pub circulars: Vec<Vec<String>>,
-}
+// pub struct OutputResult {
+//     pub entries: Vec<String>,
+//     pub tree: DependencyTree,
+//     pub circulars: Vec<Vec<String>>,
+// }
 
 pub struct Alias {
-    pub base_url: String,
+    pub root: PathBuf,
     pub paths: HashMap<String, Vec<String>>,
 }

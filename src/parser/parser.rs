@@ -2,6 +2,7 @@ use super::consts::DependencyKind;
 use super::types::{Alias, Dependency, ParseOptions};
 use crate::parser::types::DependencyTree;
 use crate::utils::options::normalize_options;
+use crate::utils::path::join_paths;
 use crate::utils::resolver::simple_resolver;
 use crate::utils::shorten::shorten_tree;
 use glob::glob;
@@ -42,13 +43,17 @@ pub async fn parse_dependency_tree(
         }
     };
 
-    let base_url = match tsconfig_json
+    let current_directory = fs::canonicalize(PathBuf::from(".")).unwrap();
+    let root = match tsconfig_json
         .get("compilerOptions")
         .and_then(|co| co.get("baseUrl"))
         .and_then(|bu| bu.as_str())
     {
-        Some(base_url) => base_url,
-        None => "",
+        Some(base_url) => {
+            let base_url: PathBuf = PathBuf::from(base_url);
+            join_paths(&[&current_directory, &base_url])
+        }
+        None => current_directory.clone(),
     };
 
     let paths = match tsconfig_json
@@ -60,7 +65,7 @@ pub async fn parse_dependency_tree(
     };
 
     let alias: Alias = Alias {
-        base_url: base_url.to_string(),
+        root,
         paths: paths
             .as_object()
             .unwrap()
@@ -80,7 +85,6 @@ pub async fn parse_dependency_tree(
     let mut output: DependencyTree = HashMap::new();
     let cm = Lrc::new(SourceMap::default());
 
-    let current_directory = fs::canonicalize(PathBuf::from(".")).unwrap();
     // 获取文件列表
     for entry in entries {
         for entry_path in glob(&entry).expect("Failed to read glob pattern") {
@@ -102,7 +106,7 @@ pub async fn parse_dependency_tree(
         }
     }
 
-    shorten_tree(current_directory.to_string_lossy().to_string(), output)
+    shorten_tree(&current_directory.to_string_lossy().to_string(), &output)
 }
 
 /// 递归解析文件中的依赖

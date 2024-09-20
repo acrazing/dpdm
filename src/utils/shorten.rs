@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use crate::parser::types::{Dependency, DependencyTree};
 
-pub fn shorten_tree(context: String, tree: DependencyTree) -> DependencyTree {
+pub fn shorten_tree(context: &String, tree: &DependencyTree) -> DependencyTree {
     let mut output: DependencyTree = HashMap::new();
     for (key, dependencies) in tree.iter() {
         let short_key = Path::new(key)
