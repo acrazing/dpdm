@@ -172,10 +172,10 @@ async fn main() {
         },
     };
 
-    let mut dependency_tree = parse_dependency_tree(&files, &options).await;
+    let dependency_tree = parse_dependency_tree(&files, &options).await;
 
     if utils::tree::is_empty(&dependency_tree) {
-        println!("No entry files were matched.");
+        println!("\nNo entry files were matched.");
         std::process::exit(1);
     }
 
@@ -220,12 +220,13 @@ async fn main() {
         None => None,
     };
 
-    let circulars = utils::tree::parse_circular(&mut dependency_tree, options.skip_dynamic_imports);
+    let circulars: Vec<Vec<String>> =
+        utils::tree::parse_circular(&mut dependency_tree.clone(), options.skip_dynamic_imports);
 
     if circulars.is_empty() {
-        println!("No circular dependencies found. {:?}", circulars);
+        println!("\n🚀 No circular dependencies found.");
     } else {
-        println!("Circular dependencies found: {:?}", circulars);
+        println!("\n{}", utils::pretty::pretty_circular(&circulars, "  "));
     }
 
     if entries.is_some() {

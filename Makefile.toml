@@ -1,2 +1,22 @@
 [tasks.dev]
-script = ["cargo build", "./target/debug/dpdm ./example/index.js"]
+script = [
+  "cargo build",
+  "./target/debug/dpdm ./example/index.js -T --exit-code circular:1 --no-tree",
+  # "./target/debug/dpdm /Users/bugyaluwang/Desktop/projects/Boarding_Desktop/src/index.tsx --exit-code circular:1",
+]
+# script = ["cargo build", "./target/debug/dpdm ./example/index.js"]
+
+[tasks.build-for-mac-arm64]
+script = ["cross build --target aarch64-apple-darwin --release"]
+
+[tasks.build-for-mac-x86]
+script = ["cross build --target x86_64-apple-darwin --release"]
+
+[tasks.build-for-linux-x86]
+script = ["cross build --target x86_64-unknown-linux-musl --release"]
+
+[tasks.build-for-linux-arm]
+script = ["cross build --target aarch64-unknown-linux-musl --release"]
+
+[tasks.build-for-windows-x86_64]
+script = ["cross build --target x86_64-pc-windows-gnu --release"]

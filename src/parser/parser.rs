@@ -9,10 +9,13 @@ use glob::glob;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use swc_common::{sync::Lrc, FileName, SourceMap};
-use swc_ecma_ast::{Callee, Program};
+use swc_common::{sync::Lrc, FileName, Mark, SourceMap};
+use swc_common::{Globals, GLOBALS};
+use swc_ecma_ast::{Callee, EsVersion, Program};
 use swc_ecma_parser::{Parser, StringInput, Syntax, TsSyntax};
-use swc_ecma_visit::{Visit, VisitWith};
+use swc_ecma_transforms_base::resolver;
+use swc_ecma_transforms_typescript::strip;
+use swc_ecma_visit::{FoldWith, Visit, VisitWith};
 
 pub async fn parse_dependency_tree(
     entries: &Vec<String>,
@@ -201,7 +204,7 @@ async fn parse_tree_recursive(
             decorators: false,
             ..Default::default()
         }),
-        swc_ecma_ast::EsVersion::EsNext,
+        EsVersion::EsNext,
         StringInput::from(&*fm),
         None,
     );
@@ -219,6 +222,25 @@ async fn parse_tree_recursive(
             // eprintln!("Failed to parse program: {:?}", err);
             return None;
         }
+    };
+
+    let program = match options.transform {
+        true => match id.ends_with(".tsx") || id.ends_with(".ts") {
+            true => {
+                let program = GLOBALS.set(&Globals::new(), || {
+                    let unresolved_mark = Mark::new();
+                    let top_level_mark = Mark::new();
+
+                    let program =
+                        program.fold_with(&mut resolver(unresolved_mark, top_level_mark, true));
+                    let program = program.fold_with(&mut strip(top_level_mark, unresolved_mark));
+                    program
+                });
+                program
+            }
+            false => program,
+        },
+        false => program,
     };
 
     let new_context: PathBuf = Path::new(&id).parent().unwrap().to_path_buf();

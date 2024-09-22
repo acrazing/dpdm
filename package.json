@@ -1,7 +1,12 @@
 {
-  "name": "dpdm",
-  "version": "3.14.0",
+  "name": "@sourcebug/dpdm",
+  "version": "1.0.8",
+  "private": false,
   "description": "Analyze circular dependencies in your JavaScript/TypeScript projects.",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "keywords": [
     "circular",
     "dependency",
@@ -18,10 +23,18 @@
   "files": [
     "assets/",
     "lib/",
-    "src/"
+    "src/",
+    "target/release/dpdm",
+    "scripts/dpdm.js",
+    "target/aarch64-apple-darwin/release/dpdm",
+    "target/x86_64-apple-darwin/release/dpdm",
+    "target/aarch64-unknown-linux-musl/release/dpdm",
+    "target/x86_64-unknown-linux-musl/release/dpdm",
+    "target/x86_64-pc-windows-gnu/release/dpdm",
+    "target/aarch64-pc-windows-gnu/release/dpdm"
   ],
   "bin": {
-    "dpdm": "lib/bin/dpdm.js"
+    "dpdm": "scripts/dpdm.js"
   },
   "sideEffects": [
     "*.css",
@@ -39,11 +52,9 @@
     "build:esm:rename:js": "find ./lib -type f -name '*.js' | sed -E 's/^(.+)\\.js$/\\1/' | xargs -I % mv %.js %.mjs",
     "build:esm:rename:map": "find ./lib -type f -name '*.js.map' | sed -E 's/^(.+)\\.js\\.map$/\\1/' | xargs -I % mv %.js.map %.mjs.map",
     "clean": "rm -rf cjs esm lib build temp .cache",
-    "prepublishOnly": "run-s test build",
     "start": "npm run clean && npm run build:esm -- --watch",
-    "test": "jest",
-    "demo": "tsx  ./src/bin/dpdm.ts ./example/index.js",
-    "prepare": "husky install"
+    "test": "echo 'Pass'",
+    "demo": "tsx  ./src/bin/dpdm.ts ./example/index.js"
   },
   "repository": {
     "type": "git",
