@@ -65,8 +65,9 @@ pub struct Dependency {
     pub kind: DependencyKind,
     pub id: Option<String>,
 }
-pub type DependencyTree = HashMap<String, Option<Vec<Dependency>>>;
+pub type DependencyTree = HashMap<String, Arc<Option<Vec<Dependency>>>>;
 
+#[derive(Debug, Clone)]
 pub struct Alias {
     pub root: PathBuf,
     pub paths: HashMap<String, Vec<String>>,

@@ -82,18 +82,20 @@ pub fn pretty_tree(tree: &DependencyTree, entries: &[String], prefix: &str) -> S
         } else {
             format!("{}    ", prefix)
         };
-        if let Some(Some(deps)) = deps {
-            for (i, dep) in deps.iter().enumerate() {
-                visit(
-                    dep.id.as_deref().unwrap_or(&dep.request),
-                    &new_prefix,
-                    i < deps.len() - 1,
-                    lines,
-                    id_map,
-                    id,
-                    tree,
-                    digits,
-                );
+        if let Some(deps) = deps.as_ref() {
+            if let Some(deps) = deps.as_ref() {
+                for (i, dep) in deps.iter().enumerate() {
+                    visit(
+                        dep.id.as_deref().unwrap_or(&dep.request),
+                        &new_prefix,
+                        i < deps.len() - 1,
+                        lines,
+                        id_map,
+                        id,
+                        tree,
+                        digits,
+                    );
+                }
             }
         }
     }
@@ -166,7 +168,9 @@ pub fn pretty_warning(warnings: &[String], prefix: &str) -> String {
             format!(
                 "{}{}{}",
                 prefix,
-                format!("{:0>width$}) ", index + 1, width = digits).color("gray").truecolor(144, 144, 144),
+                format!("{:0>width$}) ", index + 1, width = digits)
+                    .color("gray")
+                    .truecolor(144, 144, 144),
                 line.yellow()
             )
         })

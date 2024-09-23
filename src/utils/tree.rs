@@ -31,11 +31,11 @@ pub fn parse_circular(tree: &mut DependencyTree, skip_dynamic_imports: bool) -> 
         } else if let Some(deps) = tree.remove(&id) {
             used.push(id.clone());
 
-            if let Some(_dep) = deps {
-                for dep in _dep {
+            if let Some(deps) = deps.as_ref() {
+                for dep in deps {
                     if !skip_dynamic_imports || dep.kind != DependencyKind::DynamicImport {
-                        if let Some(id) = dep.id {
-                            visit(id, used.clone(), tree, skip_dynamic_imports, circulars);
+                        if let Some(id) = dep.id.as_deref() {
+                            visit(id.to_string(), used.clone(), tree, skip_dynamic_imports, circulars);
                         }
                     }
                 }
@@ -59,7 +59,7 @@ pub fn parse_circular(tree: &mut DependencyTree, skip_dynamic_imports: bool) -> 
 fn dependents(tree: &DependencyTree, key: &str) -> Vec<String> {
     let mut output: Vec<String> = Vec::new();
     for (k, deps) in tree {
-        if let Some(deps) = deps {
+        if let Some(deps) = deps.as_ref() {
             for dep in deps {
                 if let Some(id) = &dep.id {
                     if id == key {
@@ -89,7 +89,7 @@ pub fn parse_warnings(tree: &DependencyTree) -> Vec<String> {
                 dependents(tree, key).join(", ")
             ));
         } else {
-            for dep in deps.as_ref().unwrap() {
+            for dep in deps.as_ref().clone().unwrap() {
                 if dep.id.is_none() {
                     warnings.push(format!("miss \"{}\" in \"{}\"", dep.request, dep.issuer));
                 }

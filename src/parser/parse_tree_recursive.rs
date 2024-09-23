@@ -2,6 +2,8 @@ use super::dependenct_collector::DependencyCollector;
 use super::types::{Alias, Dependency, IsModule, ParseOptions};
 use crate::parser::types::DependencyTree;
 use crate::utils::resolver::simple_resolver;
+use lazy_static::lazy_static;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -13,19 +15,24 @@ use swc_ecma_transforms_base::resolver;
 use swc_ecma_transforms_typescript::strip;
 use swc_ecma_visit::{FoldWith, VisitWith};
 
+lazy_static! {
+    static ref CACHE: Mutex<HashMap<String, Arc<Option<Vec<Dependency>>>>> =
+        Mutex::new(HashMap::new());
+}
+
 pub async fn parse_tree_recursive(
     context: PathBuf,
     path: PathBuf,
     output: Arc<Mutex<DependencyTree>>,
-    cm: &Lrc<SourceMap>,
-    options: &ParseOptions,
-    alias: Option<&Alias>,
+    cm: Arc<Lrc<SourceMap>>,    // 将 Lrc<SourceMap> 包装在 Arc 中
+    options: Arc<ParseOptions>, // 将 ParseOptions 包装在 Arc 中
+    alias: Option<Arc<Alias>>,
 ) -> Option<String> {
     let id: Option<String> = match simple_resolver(
         &context.to_string_lossy().to_string(),
         &path.to_string_lossy().to_string(),
         &options.extensions,
-        alias,
+        alias.as_deref(),
     )
     .await
     {
@@ -49,9 +56,19 @@ pub async fn parse_tree_recursive(
         }
     };
 
+    // 检查缓存
+    {
+        let cache = CACHE.lock().unwrap();
+        if let Some(cached_result) = cache.get(&id) {
+            let mut output_lock = output.lock().unwrap();
+            output_lock.insert(id.clone(), Arc::clone(cached_result));
+            return Some(id.clone());
+        }
+    }
+
     if !options.include.is_match(&id) || options.exclude.is_match(&id) {
         let mut output_lock = output.lock().unwrap();
-        output_lock.insert(id.clone(), None);
+        output_lock.insert(id.clone(), Arc::new(None));
         return Some(id.clone());
     }
 
@@ -64,13 +81,13 @@ pub async fn parse_tree_recursive(
             };
             if !options.js.contains(&ext) {
                 let mut output_lock = output.lock().unwrap();
-                output_lock.insert(id.clone(), Some(Vec::new()));
+                output_lock.insert(id.clone(), Arc::new(Some(Vec::new())));
                 return Some(id.clone());
             }
         }
         None => {
             let mut output_lock = output.lock().unwrap();
-            output_lock.insert(id.clone(), Some(Vec::new()));
+            output_lock.insert(id.clone(), Arc::new(Some(Vec::new())));
             return Some(id.clone());
         }
     }
@@ -95,8 +112,8 @@ pub async fn parse_tree_recursive(
             spinner.update_text(text);
         }
     }
-
     let file_content = fs::read_to_string(&id).expect("Unable to read file");
+
     let id_path: PathBuf = Path::new(&id).to_path_buf();
 
     // 使用 swc 解析代码
@@ -152,7 +169,7 @@ pub async fn parse_tree_recursive(
     let dependencies: Vec<Dependency> = Vec::new();
     {
         let mut output_lock = output.lock().unwrap();
-        output_lock.insert(id.clone(), Some(Vec::new()));
+        output_lock.insert(id.clone(), Arc::new(Some(Vec::new())));
     }
 
     // 创建一个依赖收集器
@@ -170,26 +187,36 @@ pub async fn parse_tree_recursive(
         let path: PathBuf = PathBuf::from(dep.request.clone());
         let new_context: PathBuf = new_context.clone();
         let output_clone = Arc::clone(&output);
-        let dep: Option<String> = Box::pin(parse_tree_recursive(
-            new_context,
-            path,
-            output_clone,
-            cm,
-            options,
-            alias,
-        ))
-        .await;
-        deps.push(dep);
+        let cm_clone = Arc::clone(&cm);
+        let options_clone = Arc::clone(&options);
+        let alias_clone = alias.clone();
+        let dep_future = async move {
+            Box::pin(parse_tree_recursive(
+                new_context,
+                path,
+                output_clone,
+                cm_clone,
+                options_clone,
+                alias_clone,
+            ))
+        };
+        deps.push(dep_future);
     }
 
-    for (i, dep) in deps.iter().enumerate() {
-        collector.dependencies[i].id = dep.clone();
+    let results = futures::future::join_all(deps).await;
+    for (i, dep) in results.into_iter().enumerate() {
+        collector.dependencies[i].id = dep.await;
     }
 
-    // 将收集到的依赖存储到输出中
+    // 将收集到的依赖存储到输出和缓存中
+    let dependencies = Arc::new(Some(collector.dependencies));
     {
         let mut output_lock = output.lock().unwrap();
-        output_lock.insert(collector.id.clone(), Some(collector.dependencies));
+        output_lock.insert(collector.id.clone(), dependencies.clone());
+    }
+    {
+        let mut cache = CACHE.lock().unwrap();
+        cache.insert(collector.id.clone(), dependencies.clone());
     }
 
     if let Some(progress) = &options.progress {

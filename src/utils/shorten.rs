@@ -13,7 +13,7 @@ pub fn shorten_tree(context: &String, tree: &DependencyTree) -> DependencyTree {
             .to_string();
         output.insert(
             short_key.clone(),
-            dependencies.as_ref().map(|deps| {
+            <std::option::Option<Vec<Dependency>> as Clone>::clone(&dependencies.as_ref()).map(|deps| {
                 deps.iter()
                     .map(|item| Dependency {
                         issuer: short_key.clone(),
@@ -29,7 +29,7 @@ pub fn shorten_tree(context: &String, tree: &DependencyTree) -> DependencyTree {
                         }),
                     })
                     .collect::<Vec<Dependency>>()
-            }),
+            }).into(),
         );
     }
     output

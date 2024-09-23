@@ -98,13 +98,14 @@ pub async fn parse_dependency_tree(
                 Ok(filename) => {
                     let path: PathBuf = current_directory.join(filename);
                     let output_clone = Arc::clone(&output);
+                    let alias_arc = alias.as_ref().map(|a| Arc::new(a.clone()));
                     let task = parse_tree_recursive(
                         current_directory.clone(),
                         path,
                         output_clone,
-                        &cm,
-                        &options,
-                        alias.as_ref(),
+                        Arc::new(cm.clone()),
+                        Arc::new(options.clone()),
+                        alias_arc,
                     );
                     tasks.push(task);
                 }
