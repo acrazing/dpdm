@@ -178,7 +178,6 @@ async function main() {
 
   parseDependencyTree(files, options)
     .then(async (tree) => {
-      console.log('tree: ', tree);
       if (isEmpty(tree)) {
         throw new Error(`No entry files were matched.`);
       }

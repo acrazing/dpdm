@@ -34,3 +34,13 @@ pub fn shorten_tree(context: &String, tree: &DependencyTree) -> DependencyTree {
     }
     output
 }
+
+
+pub fn shorten_path(path: &String, context: &String) -> String {
+    Path::new(path)
+        .strip_prefix(&context)
+        .unwrap_or_else(|_| Path::new(path))
+        .to_str()
+        .unwrap()
+        .to_string()
+}

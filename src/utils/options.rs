@@ -50,6 +50,9 @@ pub fn normalize_options(options: Option<ParseOptions>) -> ParseOptions {
         new_options.transform = opts.transform;
         new_options.skip_dynamic_imports = opts.skip_dynamic_imports;
         new_options.progress = opts.progress;
+        new_options.exclude = opts.exclude;
+        new_options.include = opts.include;
+        new_options.js = opts.js;
     }
 
     if !new_options.extensions.contains(&"".to_string()) {

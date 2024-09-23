@@ -121,11 +121,3 @@ pub async fn simple_resolver(
 
     Ok(None)
 }
-
-// pub async fn ts_resolver(
-//     context: String,
-//     request: String,
-//     extensions: Vec<String>,
-// ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-
-// }

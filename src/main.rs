@@ -2,6 +2,7 @@ mod parser;
 mod utils;
 
 use clap::Parser;
+use colored::Colorize;
 use glob::glob;
 use parser::parser::parse_dependency_tree;
 use regex::Regex;
@@ -12,6 +13,7 @@ use std::fs::File;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use utils::path::join_paths;
+use utils::pretty::pretty_tree;
 use utils::resolver::simple_resolver;
 
 use parser::types::{IsModule, ParseOptions, Progress};
@@ -127,6 +129,7 @@ async fn main() {
         spinners::Dots,
         "Start analyzing dependencies...",
         Color::Green,
+        // Streams::Stdout,
     )));
 
     let context: String = args.context.as_ref().map(|s| s.clone()).unwrap_or_else(|| {
@@ -167,7 +170,10 @@ async fn main() {
         skip_dynamic_imports: args.skip_dynamic_imports.as_deref() == Some("tree"),
         is_module: IsModule::Unknown,
         progress: match no_progress {
-            true => None,
+            true => {
+                progress.spinner.lock().unwrap().stop();
+                None
+            }
             false => Some(progress),
         },
     };
@@ -179,64 +185,124 @@ async fn main() {
         std::process::exit(1);
     }
 
-    let output = args.output.clone();
-    let entries = match output {
-        Some(_output) => {
-            let entries_deep = futures::future::join_all(files.iter().map(|g: &String| {
-                let _g = g.clone();
-                async move {
-                    glob(&_g)
-                        .expect("Failed to read glob pattern")
-                        .filter_map(Result::ok)
-                        .collect::<Vec<_>>()
-                }
-            }))
-            .await;
-            let entries: Vec<_> =
-                futures::future::join_all(entries_deep.into_iter().flatten().map(|name| {
-                    let path_context: PathBuf = PathBuf::from(options.context.clone());
-                    let _context: String = options.context.clone();
-                    let _extensions: Vec<String> = options.extensions.clone();
-
-                    let params_name: String = join_paths(&[&path_context, &name])
-                        .to_string_lossy()
-                        .into_owned();
-
-                    let _clone_name: String = name.to_string_lossy().into_owned();
-
-                    async move {
-                        simple_resolver(&_context, &params_name, &_extensions, None)
-                            .await
-                            .map(|id| id.unwrap_or(_clone_name))
-                            .unwrap_or_else(|e| format!("Error: {}", e))
-                    }
-                }))
-                .await
-                .into_iter()
-                .collect();
-
-            Some(entries)
-        }
-        None => None,
-    };
-
     let circulars: Vec<Vec<String>> =
         utils::tree::parse_circular(&mut dependency_tree.clone(), options.skip_dynamic_imports);
 
-    if circulars.is_empty() {
-        println!("\n🚀 No circular dependencies found.");
+    let output = args.output.clone();
+    if output.is_some() || !args.no_tree {
+        let entries_deep = futures::future::join_all(files.iter().map(|g: &String| {
+            let _g = g.clone();
+            async move {
+                glob(&_g)
+                    .expect("Failed to read glob pattern")
+                    .filter_map(Result::ok)
+                    .collect::<Vec<_>>()
+            }
+        }))
+        .await;
+        let entries: Vec<_> =
+            futures::future::join_all(entries_deep.into_iter().flatten().map(|name| {
+                let path_context: PathBuf = PathBuf::from(options.context.clone());
+                let _context: String = options.context.clone();
+                let _extensions: Vec<String> = options.extensions.clone();
+
+                let params_name: String = join_paths(&[&path_context, &name])
+                    .to_string_lossy()
+                    .into_owned();
+
+                let _clone_name: String = name.to_string_lossy().into_owned();
+
+                async move {
+                    simple_resolver(&_context, &params_name, &_extensions, None)
+                        .await
+                        .map(|id| id.unwrap_or(_clone_name))
+                        // let it be shorten path
+                        .map(|id| utils::shorten::shorten_path(&id, &_context))
+                        .unwrap_or_else(|e| format!("Error: {}", e))
+                }
+            }))
+            .await
+            .into_iter()
+            .collect();
+
+        if output.is_some() {
+            let file = File::create(args.output.clone().unwrap()).expect("Failed to create file");
+            let data = json!({
+                "entries": entries,
+                "tree": dependency_tree,
+                "circulars": circulars
+            });
+            serde_json::to_writer_pretty(file, &data).expect("Failed to write JSON");
+        }
+
+        if !args.no_tree {
+            println!("{}", "• Dependencies Tree".bold());
+            println!("{}", pretty_tree(&dependency_tree, &entries, ""));
+            println!("");
+        }
+        Some(entries)
     } else {
-        println!("\n{}", utils::pretty::pretty_circular(&circulars, "  "));
+        None
+    };
+
+    let is_circular_empty = circulars.is_empty();
+    println!(
+        "{}",
+        "• Circular Dependencies"
+            .bold()
+            .color(if is_circular_empty { "green" } else { "red" })
+    );
+    if is_circular_empty {
+        println!("🚀 No circular dependencies found.");
+    } else {
+        println!("{}", utils::pretty::pretty_circular(&circulars, "  "));
     }
 
-    if entries.is_some() {
-        let file = File::create(args.output.unwrap()).expect("Failed to create file");
-        let data = json!({
-            "entries": entries.unwrap(),
-            "tree": dependency_tree,
-            "circulars": circulars
-        });
-        serde_json::to_writer_pretty(file, &data).expect("Failed to write JSON");
+    if !args.no_warning {
+        println!("\n{}", "• Warnings".bold().yellow());
+        println!(
+            "{}",
+            utils::pretty::pretty_warning(&utils::tree::parse_warnings(&dependency_tree), "  ")
+        );
+    }
+
+    if let Some(detect_unused_files_from) = args.detect_unused_files_from {
+        let all_files: Vec<PathBuf> = glob(&detect_unused_files_from)
+            .expect("Failed to read glob pattern")
+            .filter_map(Result::ok)
+            .collect();
+        let short_all_files: Vec<String> = all_files
+            .iter()
+            .map(|v| {
+                v.strip_prefix(&options.context)
+                    .unwrap_or(v)
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        let unused_files: Vec<String> = short_all_files
+            .iter()
+            .filter(|v| !dependency_tree.contains_key(*v))
+            .cloned()
+            .collect();
+        println!("{}", "• Unused files".bold().cyan());
+        if unused_files.is_empty() {
+            println!(
+              "{}",
+              format!(
+                  "  ✅ Congratulations, no unused file was found in your project. (total: {}, used: {})",
+                  all_files.len(),
+                  dependency_tree.len()
+              )
+              .bold()
+              .green()
+          );
+        } else {
+            let len = unused_files.len().to_string().len();
+            for (i, f) in unused_files.iter().enumerate() {
+                println!("{:0width$}) {}", i, f, width = len);
+            }
+        }
     }
 
     for (label, code) in exit_codes {

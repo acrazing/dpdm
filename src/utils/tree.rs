@@ -1,4 +1,8 @@
+use std::collections::HashSet;
+
 use crate::parser::{consts::DependencyKind, types::DependencyTree};
+
+use super::pretty::all_builtins;
 
 pub fn is_empty<T>(v: &T) -> bool
 where
@@ -12,7 +16,7 @@ where
     }
 }
 
-pub fn parse_circular(tree: & mut DependencyTree, skip_dynamic_imports: bool) -> Vec<Vec<String>> {
+pub fn parse_circular(tree: &mut DependencyTree, skip_dynamic_imports: bool) -> Vec<Vec<String>> {
     let mut circulars: Vec<Vec<String>> = Vec::new();
 
     fn visit(
@@ -50,4 +54,56 @@ pub fn parse_circular(tree: & mut DependencyTree, skip_dynamic_imports: bool) ->
     }
 
     circulars
+}
+
+fn dependents(tree: &DependencyTree, key: &str) -> Vec<String> {
+    let mut output: Vec<String> = Vec::new();
+    for (k, deps) in tree {
+        if let Some(deps) = deps {
+            for dep in deps {
+                if let Some(id) = &dep.id {
+                    if id == key {
+                        output.push(k.clone());
+                    }
+                }
+            }
+        }
+    }
+    output.sort();
+    output
+}
+
+pub fn parse_warnings(tree: &DependencyTree) -> Vec<String> {
+    let mut warnings: Vec<String> = Vec::new();
+    let mut builtin: HashSet<String> = HashSet::new();
+    let all_builtins = all_builtins();
+
+    for (key, deps) in tree {
+        if !builtin.contains(key) && all_builtins.contains(&key.as_str()) {
+            builtin.insert(format!("\"{}\"", key.clone()));
+        }
+        if deps.is_none() {
+            warnings.push(format!(
+                "skip \"{}\", issuers: {:?}",
+                key,
+                dependents(tree, key).join(", ")
+            ));
+        } else {
+            for dep in deps.as_ref().unwrap() {
+                if dep.id.is_none() {
+                    warnings.push(format!("miss \"{}\" in \"{}\"", dep.request, dep.issuer));
+                }
+            }
+        }
+    }
+
+    if !builtin.is_empty() {
+        warnings.push(format!(
+            "node {}",
+            builtin.into_iter().collect::<Vec<_>>().join(", ")
+        ));
+    }
+
+    warnings.sort();
+    warnings
 }
