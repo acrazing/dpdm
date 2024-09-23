@@ -153,6 +153,7 @@ export async function parseDependencyTree(
         compilerOptions,
         host,
       ).resolvedModule;
+
       if (module && module.extension !== ts.Extension.Dts) {
         return module.resolvedFileName;
       } else {
