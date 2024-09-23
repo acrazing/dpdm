@@ -94,7 +94,7 @@ async fn main() {
     let args = Args::parse();
 
     // 处理参数
-    let files = args.files;
+    let files = &args.files;
 
     if files.is_empty() {
         eprintln!("\nMissing entry file");
@@ -104,7 +104,7 @@ async fn main() {
     let exit_cases: HashSet<&str> = ["circular"].iter().cloned().collect();
     let mut exit_codes: Vec<(String, i32)> = Vec::new();
 
-    if let Some(exit_code_str) = args.exit_code {
+    if let Some(exit_code_str) = &args.exit_code {
         for c in exit_code_str.split(',') {
             let parts: Vec<&str> = c.split(':').collect();
             if parts.len() != 2 {
@@ -129,7 +129,6 @@ async fn main() {
         spinners::Dots,
         "Start analyzing dependencies...",
         Color::Green,
-        // Streams::Stdout,
     )));
 
     let context: String = args.context.as_ref().map(|s| s.clone()).unwrap_or_else(|| {
@@ -139,7 +138,7 @@ async fn main() {
             .into_owned()
     });
 
-    let no_progress = args.no_progress;
+    let no_progress = &args.no_progress;
 
     let progress = Progress {
         total: Arc::new(Mutex::new(0)),

@@ -5,3 +5,4 @@ pub mod path;
 pub mod tree;
 pub mod alias;
 pub mod pretty;
+pub mod json;

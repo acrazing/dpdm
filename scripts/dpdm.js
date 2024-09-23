@@ -1,8 +1,6 @@
-#!/usr/bin/env node
-
+const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawn } = require('child_process');
 
 const platform = os.platform();
 const arch = os.arch();
@@ -18,21 +16,31 @@ const keyStore = {
   'win32-arm64': 'aarch64-pc-windows-gnu',
 };
 
+const binName = platform === 'win32' ? 'dpdm.exe' : 'dpdm';
+
 const sourceDir = path.join(__dirname, '../target', keyStore[key], 'release');
-const binFile = path.join(
-  sourceDir,
-  platform === 'win32' ? 'dpdm.exe' : 'dpdm',
-);
+const sourceFile = path.join(sourceDir, binName);
 
-const args = process.argv.slice(2);
+const targetDir = path.join(__dirname, '../target', 'release');
+const targetFile = path.join(targetDir, binName);
 
-const child = spawn(binFile, args, { stdio: 'inherit' });
-
-child.on('close', (code) => {
-  process.exit(code);
+if (!fs.existsSync(targetDir)) {
+  fs.mkdirSync(targetDir, { recursive: true });
+}
+fs.copyFile(sourceFile, targetFile, (err) => {
+  if (err) {
+    console.error('Copy failed:', err);
+  }
 });
 
-child.on('error', (error) => {
-  console.error(`Failed to execute ${binFile}: ${error.message}`);
-  process.exit(1);
-});
+if (platform === 'win32') {
+  const packageJson = path.join(__dirname, '../package.json');
+  const packageJsonContent = fs.readFileSync(packageJson, 'utf8');
+  const packageJsonObj = JSON.parse(packageJsonContent);
+  packageJsonObj.bin = binName;
+  fs.writeFileSync(
+    packageJson,
+    JSON.stringify(packageJsonObj, null, 2),
+    'utf8',
+  );
+}

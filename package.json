@@ -1,6 +1,6 @@
 {
   "name": "@sourcebug/dpdm",
-  "version": "1.0.10",
+  "version": "1.0.12",
   "private": false,
   "description": "Analyze circular dependencies in your JavaScript/TypeScript projects.",
   "publishConfig": {
@@ -34,7 +34,7 @@
     "target/aarch64-pc-windows-gnu/release/dpdm"
   ],
   "bin": {
-    "dpdm": "scripts/dpdm.js"
+    "dpdm": "target/release/dpdm"
   },
   "sideEffects": [
     "*.css",
@@ -54,7 +54,8 @@
     "clean": "rm -rf cjs esm lib build temp .cache",
     "start": "npm run clean && npm run build:esm -- --watch",
     "test": "echo 'Pass'",
-    "demo": "tsx  ./src/bin/dpdm.ts ./example/index.js"
+    "demo": "tsx ./src/bin/dpdm.ts -T ./example/index.js",
+    "postinstall": "node scripts/dpdm.js"
   },
   "repository": {
     "type": "git",
