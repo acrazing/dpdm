@@ -170,10 +170,15 @@ parseDependencyTree('./index', {
     * the parse options
     */
    export interface ParseOptions {
-     context: string; // context to shorten filename,           default is process.cwd()
-     extensions: string[]; // the custom extensions to resolve file, default is [ '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json' ]
-     include: RegExp; // the files to parse match regex,        default is /\.m?[tj]sx?$/
-     exclude: RegExp; // the files to ignore parse,             default is /\/node_modules\//
+      context: string;
+      extensions: string[];
+      js: string[];
+      include: RegExp;
+      exclude: RegExp;
+      tsconfig: string | undefined;
+      onProgress: (event: 'start' | 'end', target: string) => void;
+      transform: boolean;
+      skipDynamicImports: boolean;
    }
 
    export enum DependencyKind {
