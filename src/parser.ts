@@ -156,19 +156,33 @@ export async function parseDependencyTree(
   const fullOptions = normalizeOptions(options);
   let resolve = simpleResolver;
   if (options.tsconfig) {
+    const baseCompilerOptions = ts.parseJsonConfigFileContent(
+      ts.readConfigFile(options.tsconfig, ts.sys.readFile).config,
+      ts.sys,
+      path.dirname(options.tsconfig),
+    ).options;
+
+    const baseHost = ts.createCompilerHost(baseCompilerOptions);
     resolve = async (context, request, extensions) => {
       const root = findPackageRoot(context);
       if (!compilerOptionsByPkg.has(root)) {
-        let _compilerOptions = ts.parseJsonConfigFileContent(
-          ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile)
-            .config,
-          ts.sys,
-          root,
-        ).options;
-        compilerOptionsByPkg.set(root, {
-          compilerOptions: _compilerOptions,
-          host: ts.createCompilerHost(_compilerOptions),
-        });
+        const tsconfigPath = path.join(root, 'tsconfig.json');
+        if (fs.existsSync(tsconfigPath)) {
+          let _compilerOptions = ts.parseJsonConfigFileContent(
+            ts.readConfigFile(tsconfigPath, ts.sys.readFile).config,
+            ts.sys,
+            root,
+          ).options;
+          compilerOptionsByPkg.set(root, {
+            compilerOptions: _compilerOptions,
+            host: ts.createCompilerHost(_compilerOptions),
+          });
+        } else {
+          compilerOptionsByPkg.set(root, {
+            compilerOptions: baseCompilerOptions,
+            host: baseHost,
+          });
+        }
       }
       const { compilerOptions, host } = compilerOptionsByPkg.get(
         root,
