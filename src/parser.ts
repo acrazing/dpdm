@@ -123,6 +123,23 @@ async function parseTreeRecursive(
   });
 }
 
+function findPackageRoot(dirName: string, packageFileName = 'package.json') {
+  let currentDir = dirName;
+  while (currentDir !== path.dirname(currentDir)) {
+    const packageFilePath = path.join(currentDir, packageFileName);
+    if (fs.existsSync(packageFilePath)) {
+      return currentDir;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+  return '';
+}
+type CompilerOptionsByPkg = {
+  compilerOptions: ts.CompilerOptions;
+  host: ts.CompilerHost;
+};
+const compilerOptionsByPkg = new Map<string, CompilerOptionsByPkg>();
+
 /**
  * @param entries - the entry glob list
  * @param options
@@ -139,14 +156,37 @@ export async function parseDependencyTree(
   const fullOptions = normalizeOptions(options);
   let resolve = simpleResolver;
   if (options.tsconfig) {
-    const compilerOptions = ts.parseJsonConfigFileContent(
+    const baseCompilerOptions = ts.parseJsonConfigFileContent(
       ts.readConfigFile(options.tsconfig, ts.sys.readFile).config,
       ts.sys,
       path.dirname(options.tsconfig),
     ).options;
 
-    const host = ts.createCompilerHost(compilerOptions);
+    const baseHost = ts.createCompilerHost(baseCompilerOptions);
     resolve = async (context, request, extensions) => {
+      const root = findPackageRoot(context);
+      if (!compilerOptionsByPkg.has(root)) {
+        const tsconfigPath = path.join(root, 'tsconfig.json');
+        if (fs.existsSync(tsconfigPath)) {
+          let _compilerOptions = ts.parseJsonConfigFileContent(
+            ts.readConfigFile(tsconfigPath, ts.sys.readFile).config,
+            ts.sys,
+            root,
+          ).options;
+          compilerOptionsByPkg.set(root, {
+            compilerOptions: _compilerOptions,
+            host: ts.createCompilerHost(_compilerOptions),
+          });
+        } else {
+          compilerOptionsByPkg.set(root, {
+            compilerOptions: baseCompilerOptions,
+            host: baseHost,
+          });
+        }
+      }
+      const { compilerOptions, host } = compilerOptionsByPkg.get(
+        root,
+      ) as CompilerOptionsByPkg;
       const module = ts.resolveModuleName(
         request,
         path.join(context, 'index.ts'),
