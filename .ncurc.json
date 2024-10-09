@@ -1,4 +1,4 @@
 {
   "upgrade": true,
-  "reject": ["chalk", "ora"]
+  "reject": ["chalk", "ora", "glob"]
 }
