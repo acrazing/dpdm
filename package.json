@@ -41,7 +41,7 @@
     "clean": "rm -rf cjs esm lib build temp .cache",
     "prepublishOnly": "run-s test build",
     "start": "npm run clean && npm run build:esm -- --watch",
-    "test": "jest",
+    "test": "vitest",
     "demo": "ts-node -T ./src/bin/dpdm.ts ./example/index.js",
     "prepare": "husky install"
   },
@@ -52,17 +52,15 @@
   "license": "MIT",
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
-    "@types/jest": "^30.0.0",
     "@types/yargs": "^17.0.35",
     "husky": "^9.1.7",
-    "jest": "^30.2.0",
     "lint-staged": "^16.2.7",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.8.1",
     "pretty-quick": "^4.2.2",
-    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "chalk": "^5.6.2",

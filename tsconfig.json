@@ -36,7 +36,8 @@
     "allowUnreachableCode": false,
     "stripInternal": true,
     "allowUnusedLabels": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["vitest/globals"]
   },
   "include": ["./src/**/*.d.ts", "./src/**/*.ts", "./src/**/*.tsx"]
 }
