@@ -22,9 +22,11 @@ import {
   prettyWarning,
   simpleResolver,
 } from '../utils';
+import { hideBin } from 'yargs/helpers';
 
 async function main() {
-  const argv = await yargs
+  const y = yargs(hideBin(process.argv));
+  const argv = await y
     .strict()
     .usage(
       '$0 [options] <files...>',
@@ -115,7 +117,8 @@ async function main() {
       desc: 'Skip parse import(...) statement.',
     })
     .alias('h', 'help')
-    .wrap(Math.min(yargs.terminalWidth(), 100)).argv;
+    .wrap(Math.min(y.terminalWidth(), 100))
+    .parseAsync();
 
   const files = argv.files as string[];
 

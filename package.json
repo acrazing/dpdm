@@ -52,25 +52,26 @@
   "license": "MIT",
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
-    "@types/jest": "^29.5.13",
-    "@types/yargs": "^17.0.33",
-    "husky": "^9.1.6",
-    "jest": "^29.7.0",
-    "lint-staged": "^15.2.10",
+    "@types/jest": "^30.0.0",
+    "@types/yargs": "^17.0.35",
+    "husky": "^9.1.7",
+    "jest": "^30.2.0",
+    "lint-staged": "^16.2.7",
     "npm-run-all": "^4.1.5",
-    "prettier": "^3.3.3",
-    "pretty-quick": "^4.0.0",
-    "ts-jest": "^29.2.5",
-    "ts-node": "^10.9.2"
+    "prettier": "^3.8.1",
+    "pretty-quick": "^4.2.2",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0"
   },
   "dependencies": {
-    "chalk": "^4.1.2",
-    "fs-extra": "^11.2.0",
-    "glob": "^10.3.10",
-    "ora": "^5.4.1",
-    "tslib": "^2.7.0",
-    "typescript": "^5.6.3",
-    "yargs": "^17.7.2"
+    "chalk": "^5.6.2",
+    "fs-extra": "^11.3.3",
+    "glob": "^13.0.0",
+    "ora": "^9.1.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
+    "yargs": "^18.0.0"
   },
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown"
@@ -88,5 +89,5 @@
     "arrowParens": "always",
     "endOfLine": "lf"
   },
-  "packageManager": "yarn@1.22.21+sha1.1959a18351b811cdeedbd484a8f86c3cc3bbaf72"
+  "packageManager": "yarn@1.22.22"
 }
