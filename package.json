@@ -42,6 +42,7 @@
     "prepublishOnly": "run-s test build",
     "start": "npm run clean && npm run build:esm -- --watch",
     "test": "vitest",
+    "typecheck": "tsc --noEmit",
     "demo": "ts-node -T ./src/bin/dpdm.ts ./example/index.js",
     "prepare": "husky install"
   },
