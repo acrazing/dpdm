@@ -22,7 +22,35 @@ import {
   prettyWarning,
   simpleResolver,
 } from '../utils';
+import type { SkippedImport } from '../utils';
 import { hideBin } from 'yargs/helpers';
+
+function splitSkipImportValue(value: string): string[] {
+  return value.split(',').filter(Boolean);
+}
+
+function normalizeCircularId(context: string, id: string) {
+  const fullPath = path.isAbsolute(id) ? id : path.resolve(context, id);
+  return path.relative(context, fullPath);
+}
+
+function parseSkipImports(
+  skipImports: string[],
+  context: string,
+): SkippedImport[] {
+  return skipImports.map((item) => {
+    const parts = item.split(':');
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+      throw new TypeError(
+        `skip import should be in the format ISSUER:DEPENDENCY`,
+      );
+    }
+    return [
+      normalizeCircularId(context, parts[0]),
+      normalizeCircularId(context, parts[1]),
+    ];
+  });
+}
 
 async function main() {
   const y = yargs(hideBin(process.argv));
@@ -116,6 +144,11 @@ async function main() {
       choices: ['tree', 'circular'],
       desc: 'Skip parse import(...) statement.',
     })
+    .option('skip-imports', {
+      type: 'string',
+      array: true,
+      desc: 'Skip import edges from circular checks. Values are regexp ISSUER:DEPENDENCY pairs.',
+    })
     .alias('h', 'help')
     .wrap(Math.min(y.terminalWidth(), 100))
     .parseAsync();
@@ -150,6 +183,12 @@ async function main() {
   let current = '';
 
   const context = argv.context || process.cwd();
+  const skippedImports = parseSkipImports(
+    ((argv.skipImports as string[] | undefined) || []).flatMap(
+      splitSkipImportValue,
+    ),
+    context,
+  );
 
   function onProgress(event: 'start' | 'end', target: string) {
     switch (event) {
@@ -200,6 +239,7 @@ async function main() {
       const circulars = parseCircular(
         tree,
         argv.skipDynamicImports === 'circular',
+        skippedImports,
       );
       if (argv.output) {
         await fs.outputJSON(

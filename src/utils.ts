@@ -12,6 +12,19 @@ import { Dependency, DependencyTree, ParseOptions } from './types';
 
 const allBuiltins = new Set(builtinModules);
 
+export type SkippedImport = readonly [string, string];
+
+function createSkippedImportsRegExp(
+  skipImports: readonly SkippedImport[],
+): RegExp {
+  if (skipImports.length === 0) {
+    return /$./;
+  }
+  return new RegExp(
+    `^(?:${skipImports.map((item) => item.join(':')).join('|')})$`,
+  );
+}
+
 export const defaultOptions: ParseOptions = {
   context: process.cwd(),
   extensions: ['', '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json'],
@@ -130,8 +143,10 @@ export function shortenTree(
 export function parseCircular(
   tree: DependencyTree,
   skipDynamicImports: boolean = false,
+  skipImports: readonly SkippedImport[] = [],
 ): string[][] {
   const circulars: string[][] = [];
+  const skippedImports = createSkippedImportsRegExp(skipImports);
 
   tree = { ...tree };
 
@@ -147,7 +162,9 @@ export function parseCircular(
         deps.forEach((dep) => {
           if (
             dep.id &&
-            (!skipDynamicImports || dep.kind !== DependencyKind.DynamicImport)
+            (!skipDynamicImports ||
+              dep.kind !== DependencyKind.DynamicImport) &&
+            !skippedImports.test(`${dep.issuer}:${dep.id}`)
           ) {
             visit(dep.id, used.slice());
           }

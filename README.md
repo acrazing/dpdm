@@ -92,6 +92,12 @@
    dpdm --skip-dynamic-imports circular index.js
    ```
 
+7. Ignore specified imports when finding circular dependencies:
+
+   ```bash
+   dpdm ./src/index.js --skip-imports 'src/a.js:.*' src/c.js:src/d.js
+   ```
+
 ### Options
 
 ```bash
@@ -132,6 +138,8 @@ Options:
       --detect-unused-files-from  this file is a glob, used for finding unused files.       [string]
       --skip-dynamic-imports      Skip parse import(...) statement.
                                                               [string] [choices: "tree", "circular"]
+      --skip-imports              Skip import edges from circular checks. Values are regexp
+                                  ISSUER:DEPENDENCY pairs.                                   [array]
   -h, --help                      Show help                                                [boolean]
 ```
 
@@ -170,15 +178,15 @@ parseDependencyTree('./index', {
     * the parse options
     */
    export interface ParseOptions {
-      context: string;
-      extensions: string[];
-      js: string[];
-      include: RegExp;
-      exclude: RegExp;
-      tsconfig: string | undefined;
-      onProgress: (event: 'start' | 'end', target: string) => void;
-      transform: boolean;
-      skipDynamicImports: boolean;
+     context: string;
+     extensions: string[];
+     js: string[];
+     include: RegExp;
+     exclude: RegExp;
+     tsconfig: string | undefined;
+     onProgress: (event: 'start' | 'end', target: string) => void;
+     transform: boolean;
+     skipDynamicImports: boolean;
    }
 
    export enum DependencyKind {

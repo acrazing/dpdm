@@ -61,11 +61,15 @@ describe('util', () => {
   });
 
   describe('When parsing circular', () => {
-    function dependencyFactory(id: string): Dependency {
+    function dependencyFactory(
+      id: string,
+      issuer: string = '',
+      kind = DependencyKind.StaticImport,
+    ): Dependency {
       return {
-        issuer: '',
+        issuer,
         request: '',
-        kind: DependencyKind.StaticImport,
+        kind,
         id,
       };
     }
@@ -223,6 +227,63 @@ describe('util', () => {
       it('Should include the ids involved in the cycle', () => {
         expect(actual[0]).toMatchObject(['start', 'mid', 'left']);
         expect(actual[1]).toMatchObject(['start', 'mid', 'right']);
+      });
+    });
+
+    describe('When skip imports are specified', () => {
+      it('Should not skip imports when the skip list is empty', () => {
+        const tree = {
+          a: [dependencyFactory('b', 'a')],
+          b: [dependencyFactory('a', 'b')],
+        };
+
+        expect(parseCircular(tree, false, [])).toEqual([['a', 'b']]);
+      });
+
+      it('Should ignore a matching import edge when parsing circulars', () => {
+        const tree = {
+          a: [dependencyFactory('b', 'a')],
+          b: [dependencyFactory('a', 'b')],
+        };
+
+        expect(parseCircular(tree, false, [['b', 'a']])).toEqual([]);
+      });
+
+      it('Should only ignore the specified import edge', () => {
+        const tree = {
+          start: [
+            dependencyFactory('left', 'start'),
+            dependencyFactory('right', 'start'),
+          ],
+          left: [dependencyFactory('start', 'left')],
+          right: [dependencyFactory('start', 'right')],
+        };
+
+        const actual = parseCircular(tree, false, [['left', 'start']]);
+        expect(actual).toHaveLength(1);
+        expect(actual[0]).toMatchObject(['start', 'right']);
+      });
+
+      it('Should support regexp patterns for skipped imports', () => {
+        const tree = {
+          'src/a.js': [
+            dependencyFactory('src/b.js', 'src/a.js'),
+            dependencyFactory('src/c.js', 'src/a.js'),
+          ],
+          'src/b.js': [dependencyFactory('src/a.js', 'src/b.js')],
+          'src/c.js': [dependencyFactory('src/a.js', 'src/c.js')],
+        };
+
+        expect(parseCircular(tree, false, [['src/a.js', '.*']])).toEqual([]);
+      });
+
+      it('Should not match skipped imports by prefix', () => {
+        const tree = {
+          a: [dependencyFactory('bc', 'a')],
+          bc: [dependencyFactory('a', 'bc')],
+        };
+
+        expect(parseCircular(tree, false, [['a', 'b']])).toEqual([['a', 'bc']]);
       });
     });
   });
