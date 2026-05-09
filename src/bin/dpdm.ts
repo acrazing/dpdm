@@ -231,7 +231,7 @@ async function main() {
           .map((name) =>
             simpleResolver(
               options.context!,
-              path.join(options.context!, name),
+              path.resolve(options.context!, name),
               options.extensions,
             ).then((id) => (id ? path.relative(options.context!, id) : name)),
           ),

@@ -175,7 +175,7 @@ export async function parseDependencyTree(
           matches.map((filename) =>
             parseTreeRecursive(
               currentDirectory,
-              path.join(currentDirectory, filename),
+              path.resolve(currentDirectory, filename),
               fullOptions,
               output,
               resolve,

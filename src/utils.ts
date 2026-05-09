@@ -59,7 +59,7 @@ export function normalizeOptions(options: Partial<ParseOptions>): ParseOptions {
     if (!stat || !stat.isFile()) {
       throw new Error(`specified tsconfig "${options.tsconfig}" is not a file`);
     }
-    options.tsconfig = path.join(process.cwd(), options.tsconfig);
+    options.tsconfig = path.resolve(process.cwd(), options.tsconfig);
   }
   return newOptions;
 }
