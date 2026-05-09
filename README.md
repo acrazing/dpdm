@@ -104,6 +104,12 @@
    dpdm --cwd ../other-project ./src/index.ts
    ```
 
+9. Show dependencies and circular dependencies grouped by package:
+
+   ```bash
+   dpdm --group-by-package './packages/*/src/index.ts'
+   ```
+
 ### Options
 
 ```bash
@@ -147,6 +153,8 @@ Options:
                                                               [string] [choices: "tree", "circular"]
       --skip-imports              Skip import edges from circular checks. Values are regexp
                                   ISSUER:DEPENDENCY pairs.                                   [array]
+      --group-by-package          print dependencies and circulars grouped by nearest package.json
+                                                                                           [boolean]
   -h, --help                      Show help                                                [boolean]
 ```
 
@@ -216,7 +224,16 @@ parseDependencyTree('./index', {
    export type DependencyTree = Record<string, Dependency[] | null>;
    ```
 
-2. `parseCircular(tree)`: parse circulars in dependency tree
+2. `groupDependencyTreeByPackage(tree, context)`: group dependencies by nearest package.json
+
+   ```typescript jsx
+   export declare function groupDependencyTreeByPackage(
+     tree: DependencyTree,
+     context: string,
+   ): DependencyTree;
+   ```
+
+3. `parseCircular(tree)`: parse circulars in dependency tree
 
    ```typescript jsx
    export declare function parseCircular(tree: DependencyTree): string[][];

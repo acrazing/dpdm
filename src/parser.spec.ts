@@ -3,104 +3,132 @@
  * @since 2026-05-09 14:35:00
  */
 
-import fs from 'fs-extra';
-import os from 'os';
 import path from 'path';
 import { DependencyKind } from './consts';
 import { parseDependencyTree } from './parser';
+import {
+  groupDependencyTreeByPackage,
+  groupEntriesByPackage,
+  parseCircular,
+} from './utils';
 
 describe('parser', () => {
-  let fixture: string;
-
-  beforeEach(async () => {
-    fixture = await fs.mkdtemp(path.join(os.tmpdir(), 'dpdm-parser-'));
-  });
-
-  afterEach(async () => {
-    await fs.remove(fixture);
-  });
+  const fixture = path.join(__dirname, '../fixtures/parser/monorepo');
 
   it('should parse relative entries from a custom cwd', async () => {
-    await fs.outputFile(
-      path.join(fixture, 'src/index.ts'),
-      "import { value } from './dep';\nconsole.log(value);\n",
-    );
-    await fs.outputFile(
-      path.join(fixture, 'src/dep.ts'),
-      'export const value = 1;\n',
-    );
-
-    const tree = await parseDependencyTree('src/index.ts', { cwd: fixture });
+    const tree = await parseDependencyTree('packages/shared/src/index.ts', {
+      cwd: fixture,
+    });
 
     expect(tree).toEqual({
-      'src/index.ts': [
+      'packages/shared/src/index.ts': [
         {
-          issuer: 'src/index.ts',
+          issuer: 'packages/shared/src/index.ts',
           request: './dep',
-          kind: DependencyKind.StaticImport,
-          id: 'src/dep.ts',
+          kind: DependencyKind.StaticExport,
+          id: 'packages/shared/src/dep.ts',
         },
       ],
-      'src/dep.ts': [],
+      'packages/shared/src/dep.ts': [],
     });
   });
 
   it('should parse an absolute entry file path', async () => {
-    await fs.outputFile(
-      path.join(fixture, 'src/index.ts'),
-      "import { value } from './dep';\nconsole.log(value);\n",
+    const tree = await parseDependencyTree(
+      path.join(fixture, 'packages/shared/src/index.ts'),
+      {
+        context: fixture,
+      },
     );
-    await fs.outputFile(
-      path.join(fixture, 'src/dep.ts'),
-      'export const value = 1;\n',
-    );
-
-    const tree = await parseDependencyTree(path.join(fixture, 'src/index.ts'), {
-      context: fixture,
-    });
 
     expect(tree).toEqual({
-      'src/index.ts': [
+      'packages/shared/src/index.ts': [
         {
-          issuer: 'src/index.ts',
+          issuer: 'packages/shared/src/index.ts',
           request: './dep',
-          kind: DependencyKind.StaticImport,
-          id: 'src/dep.ts',
+          kind: DependencyKind.StaticExport,
+          id: 'packages/shared/src/dep.ts',
         },
       ],
-      'src/dep.ts': [],
+      'packages/shared/src/dep.ts': [],
     });
   });
 
   it('should resolve aliases from an absolute tsconfig path', async () => {
-    await fs.outputJSON(path.join(fixture, 'tsconfig.json'), {
-      compilerOptions: {
-        paths: {
-          '~/*': ['./src/*'],
-        },
-      },
-    });
-    await fs.outputFile(
-      path.join(fixture, 'src/index.ts'),
-      "import { value } from '~/dep';\nconsole.log(value);\n",
-    );
-    await fs.outputFile(
-      path.join(fixture, 'src/dep.ts'),
-      'export const value = 1;\n',
-    );
-
-    const tree = await parseDependencyTree(path.join(fixture, 'src/index.ts'), {
-      context: fixture,
-      tsconfig: path.join(fixture, 'tsconfig.json'),
-    });
-
-    expect(tree['src/index.ts']).toEqual([
+    const tree = await parseDependencyTree(
+      path.join(fixture, 'packages/alias-user/src/index.ts'),
       {
-        issuer: 'src/index.ts',
+        context: fixture,
+        tsconfig: path.join(fixture, 'tsconfig.json'),
+      },
+    );
+
+    expect(tree['packages/alias-user/src/index.ts']).toEqual([
+      {
+        issuer: 'packages/alias-user/src/index.ts',
         request: '~/dep',
         kind: DependencyKind.StaticImport,
-        id: 'src/dep.ts',
+        id: 'packages/shared/src/dep.ts',
       },
     ]);
+  });
+
+  it('should group dependencies and circulars by package', async () => {
+    const tree = await parseDependencyTree(
+      ['packages/app/src/index.ts', 'packages/ui/src/index.ts'],
+      { cwd: fixture },
+    );
+    const packageTree = groupDependencyTreeByPackage(tree, fixture);
+
+    expect(
+      groupEntriesByPackage(
+        [
+          'packages/app/src/index.ts',
+          'packages/ui/src/index.ts',
+          'packages/app/src/local.ts',
+        ],
+        fixture,
+      ),
+    ).toEqual(['@repo/app', '@repo/ui']);
+    expect(packageTree).toEqual({
+      '@repo/app': [
+        {
+          issuer: '@repo/app',
+          request: '../../shared/src',
+          kind: DependencyKind.StaticImport,
+          id: '@repo/shared',
+        },
+        {
+          issuer: '@repo/app',
+          request: '../../ui/src',
+          kind: DependencyKind.StaticImport,
+          id: '@repo/ui',
+        },
+      ],
+      '@repo/ui': [
+        {
+          issuer: '@repo/ui',
+          request: '../../shared/src',
+          kind: DependencyKind.StaticImport,
+          id: '@repo/shared',
+        },
+      ],
+      '@repo/shared': [],
+    });
+    expect(parseCircular(packageTree)).toEqual([]);
+  });
+
+  it('should detect package-level circular dependencies', async () => {
+    const tree = await parseDependencyTree(
+      ['packages/cycle-a/src/index.ts', 'packages/cycle-b/src/index.ts'],
+      {
+        cwd: fixture,
+      },
+    );
+    const packageTree = groupDependencyTreeByPackage(tree, fixture);
+
+    const circulars = parseCircular(packageTree);
+    expect(circulars).toHaveLength(1);
+    expect(circulars[0].sort()).toEqual(['@repo/cycle-a', '@repo/cycle-b']);
   });
 });

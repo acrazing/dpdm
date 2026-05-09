@@ -14,6 +14,8 @@ import { parseDependencyTree } from '../parser';
 import { ParseOptions } from '../types';
 import {
   defaultOptions,
+  groupDependencyTreeByPackage,
+  groupEntriesByPackage,
   isEmpty,
   parseCircular,
   parseWarnings,
@@ -157,6 +159,11 @@ async function main() {
       array: true,
       desc: 'Skip import edges from circular checks. Values are regexp ISSUER:DEPENDENCY pairs.',
     })
+    .option('group-by-package', {
+      type: 'boolean',
+      desc: 'print dependencies and circulars grouped by nearest package.json',
+      default: false,
+    })
     .alias('h', 'help')
     .wrap(Math.min(y.terminalWidth(), 100))
     .parseAsync();
@@ -247,27 +254,41 @@ async function main() {
             );
           }),
       );
+      const displayedTree = argv.groupByPackage
+        ? groupDependencyTreeByPackage(tree, context)
+        : tree;
+      const displayedEntries = argv.groupByPackage
+        ? groupEntriesByPackage(entries, context)
+        : entries;
       const circulars = parseCircular(
-        tree,
+        displayedTree,
         argv.skipDynamicImports === 'circular',
         skippedImports,
       );
       if (argv.output) {
         await fs.outputJSON(
           argv.output,
-          { entries, tree, circulars },
+          { entries: displayedEntries, tree: displayedTree, circulars },
           { spaces: 2 },
         );
       }
       if (argv.tree) {
-        console.log(chalk.bold('• Dependencies Tree'));
-        console.log(prettyTree(tree, entries));
+        console.log(
+          chalk.bold(
+            argv.groupByPackage
+              ? '• Package Dependencies Tree'
+              : '• Dependencies Tree',
+          ),
+        );
+        console.log(prettyTree(displayedTree, displayedEntries));
         console.log('');
       }
       if (argv.circular) {
         console.log(
           chalk.bold[circulars.length === 0 ? 'green' : 'red'](
-            '• Circular Dependencies',
+            argv.groupByPackage
+              ? '• Package Circular Dependencies'
+              : '• Circular Dependencies',
           ),
         );
         if (circulars.length === 0) {

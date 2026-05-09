@@ -143,6 +143,128 @@ export function shortenTree(
   return output;
 }
 
+function getPackageNameFromRequest(request: string): string | null {
+  if (request.startsWith('.') || path.isAbsolute(request)) {
+    return null;
+  }
+  const parts = request.split('/');
+  if (request.startsWith('@')) {
+    return parts.length > 1 ? parts.slice(0, 2).join('/') : request;
+  }
+  return parts[0] || null;
+}
+
+function getPackageNameFromPath(
+  context: string,
+  id: string,
+  cache: Map<string, string | null>,
+): string | null {
+  if (allBuiltins.has(id)) {
+    return id;
+  }
+  const fullPath = path.isAbsolute(id) ? id : path.resolve(context, id);
+  let current = path.extname(fullPath) ? path.dirname(fullPath) : fullPath;
+  const root = path.parse(current).root;
+
+  while (true) {
+    const cached = cache.get(current);
+    if (cached !== void 0) {
+      return cached;
+    }
+
+    try {
+      const pkg = fs.readJSONSync(path.join(current, 'package.json'));
+      const name =
+        typeof pkg.name === 'string' && pkg.name
+          ? pkg.name
+          : path.relative(context, current) || path.basename(current);
+      cache.set(current, name);
+      return name;
+    } catch {}
+
+    if (current === root) {
+      cache.set(current, null);
+      return null;
+    }
+    current = path.dirname(current);
+  }
+}
+
+export function getPackageName(context: string, id: string): string | null {
+  return getPackageNameFromPath(context, id, new Map());
+}
+
+export function groupDependencyTreeByPackage(
+  tree: DependencyTree,
+  context: string,
+): DependencyTree {
+  const packages: Record<string, Dependency[] | null> = {};
+  const edges: Record<string, Set<string>> = {};
+  const cache = new Map<string, string | null>();
+
+  function ensurePackage(id: string, ignored = false) {
+    if (!(id in packages)) {
+      packages[id] = ignored ? null : [];
+    } else if (packages[id] === null && !ignored) {
+      packages[id] = [];
+    }
+  }
+
+  for (const id in tree) {
+    const issuerPackage = getPackageNameFromPath(context, id, cache) || id;
+    const deps = tree[id];
+    ensurePackage(issuerPackage, deps === null);
+    if (!deps) {
+      continue;
+    }
+
+    for (const dep of deps) {
+      const dependencyPackage = dep.id
+        ? getPackageNameFromPath(context, dep.id, cache)
+        : getPackageNameFromRequest(dep.request);
+      if (!dependencyPackage || dependencyPackage === issuerPackage) {
+        continue;
+      }
+
+      ensurePackage(dependencyPackage, dep.id ? tree[dep.id] === null : false);
+      const edgeSet = (edges[issuerPackage] =
+        edges[issuerPackage] || new Set());
+      if (edgeSet.has(dependencyPackage)) {
+        continue;
+      }
+      edgeSet.add(dependencyPackage);
+      (packages[issuerPackage] as Dependency[]).push({
+        issuer: issuerPackage,
+        request: dep.request,
+        kind: dep.kind,
+        id: dependencyPackage,
+      });
+    }
+  }
+
+  for (const id in packages) {
+    packages[id]?.sort((a, b) => a.id!.localeCompare(b.id!));
+  }
+  return packages;
+}
+
+export function groupEntriesByPackage(
+  entries: string[],
+  context: string,
+): string[] {
+  const output: string[] = [];
+  const seen = new Set<string>();
+  const cache = new Map<string, string | null>();
+  for (const entry of entries) {
+    const id = getPackageNameFromPath(context, entry, cache) || entry;
+    if (!seen.has(id)) {
+      output.push(id);
+      seen.add(id);
+    }
+  }
+  return output;
+}
+
 export function parseCircular(
   tree: DependencyTree,
   skipDynamicImports: boolean = false,
