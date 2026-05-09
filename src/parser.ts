@@ -134,15 +134,14 @@ export async function parseDependencyTree(
   if (!Array.isArray(entries)) {
     entries = [entries];
   }
-  const currentDirectory = process.cwd();
   const output: DependencyTree = {};
   const fullOptions = normalizeOptions(options);
   let resolve = simpleResolver;
-  if (options.tsconfig) {
+  if (fullOptions.tsconfig) {
     const compilerOptions = ts.parseJsonConfigFileContent(
-      ts.readConfigFile(options.tsconfig, ts.sys.readFile).config,
+      ts.readConfigFile(fullOptions.tsconfig, ts.sys.readFile).config,
       ts.sys,
-      path.dirname(options.tsconfig),
+      path.dirname(fullOptions.tsconfig),
     ).options;
 
     const host = ts.createCompilerHost(compilerOptions);
@@ -170,12 +169,12 @@ export async function parseDependencyTree(
   }
   await Promise.all(
     entries.map((entry) =>
-      G.glob(entry).then((matches) =>
+      G.glob(entry, { cwd: fullOptions.cwd }).then((matches) =>
         Promise.all(
           matches.map((filename) =>
             parseTreeRecursive(
-              currentDirectory,
-              path.resolve(currentDirectory, filename),
+              fullOptions.cwd,
+              path.resolve(fullOptions.cwd, filename),
               fullOptions,
               output,
               resolve,

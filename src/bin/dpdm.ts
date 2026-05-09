@@ -34,6 +34,10 @@ function normalizeCircularId(context: string, id: string) {
   return path.relative(context, fullPath);
 }
 
+function resolveFromCwd(cwd: string, target: string): string {
+  return path.resolve(cwd, target);
+}
+
 function parseSkipImports(
   skipImports: string[],
   context: string,
@@ -70,7 +74,11 @@ async function main() {
     )
     .option('context', {
       type: 'string',
-      desc: 'the context directory to shorten path, default is current directory',
+      desc: 'the context directory to shorten path, default is cwd',
+    })
+    .option('cwd', {
+      type: 'string',
+      desc: 'the working directory used to match files and resolve relative paths, default is current directory',
     })
     .option('extensions', {
       alias: 'ext',
@@ -182,7 +190,8 @@ async function main() {
   let ended = 0;
   let current = '';
 
-  const context = argv.context || process.cwd();
+  const cwd = path.resolve((argv.cwd as string | undefined) || process.cwd());
+  const context = path.resolve(cwd, argv.context || '.');
   const skippedImports = parseSkipImports(
     ((argv.skipImports as string[] | undefined) || []).flatMap(
       splitSkipImportValue,
@@ -207,6 +216,7 @@ async function main() {
   }
 
   const options: ParseOptions = {
+    cwd,
     context,
     extensions: argv.extensions.split(','),
     js: argv.js.split(','),
@@ -224,17 +234,18 @@ async function main() {
         throw new Error(`No entry files were matched.`);
       }
       o.succeed(`[${ended}/${total}] Analyze done!`);
-      const entriesDeep = await Promise.all(files.map((g) => G.glob(g)));
+      const entriesDeep = await Promise.all(
+        files.map((g) => G.glob(g, { cwd })),
+      );
       const entries = await Promise.all(
         Array<string>()
           .concat(...entriesDeep)
-          .map((name) =>
-            simpleResolver(
-              options.context!,
-              path.resolve(options.context!, name),
-              options.extensions,
-            ).then((id) => (id ? path.relative(options.context!, id) : name)),
-          ),
+          .map((name) => {
+            const fullName = resolveFromCwd(cwd, name);
+            return simpleResolver(cwd, fullName, options.extensions).then(
+              (id) => path.relative(context, id || fullName),
+            );
+          }),
       );
       const circulars = parseCircular(
         tree,
@@ -276,8 +287,10 @@ async function main() {
         console.log('');
       }
       if (argv.detectUnusedFilesFrom) {
-        const allFiles = await G.glob(argv.detectUnusedFilesFrom);
-        const shortAllFiles = allFiles.map((v) => path.relative(context, v));
+        const allFiles = await G.glob(argv.detectUnusedFilesFrom, { cwd });
+        const shortAllFiles = allFiles.map((v) =>
+          path.relative(context, resolveFromCwd(cwd, v)),
+        );
         const unusedFiles = shortAllFiles.filter((v) => !(v in tree)).sort();
         console.log(chalk.bold.cyan('• Unused files'));
         if (unusedFiles.length === 0) {

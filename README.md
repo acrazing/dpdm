@@ -98,6 +98,12 @@
    dpdm ./src/index.js --skip-imports 'src/a.js:.*' src/c.js:src/d.js
    ```
 
+8. Analyze files from another working directory:
+
+   ```bash
+   dpdm --cwd ../other-project ./src/index.ts
+   ```
+
 ### Options
 
 ```bash
@@ -110,8 +116,9 @@ Positionals:
 
 Options:
       --version                   Show version number                                      [boolean]
-      --context                   the context directory to shorten path, default is current
-                                  directory                                                 [string]
+      --context                   the context directory to shorten path, default is cwd      [string]
+      --cwd                       the working directory used to match files and resolve relative
+                                  paths, default is current directory                       [string]
       --extensions, --ext         comma separated extensions to resolve
                                                   [string] [default: ".ts,.tsx,.mjs,.js,.jsx,.json"]
       --js                        comma separated extensions indicate the file is js like
@@ -178,6 +185,7 @@ parseDependencyTree('./index', {
     * the parse options
     */
    export interface ParseOptions {
+     cwd: string;
      context: string;
      extensions: string[];
      js: string[];

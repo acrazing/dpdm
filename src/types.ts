@@ -6,6 +6,7 @@
 import { DependencyKind } from './consts';
 
 export interface ParseOptions {
+  cwd: string;
   context: string;
   extensions: string[];
   js: string[];

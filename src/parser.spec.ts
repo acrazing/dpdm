@@ -20,6 +20,31 @@ describe('parser', () => {
     await fs.remove(fixture);
   });
 
+  it('should parse relative entries from a custom cwd', async () => {
+    await fs.outputFile(
+      path.join(fixture, 'src/index.ts'),
+      "import { value } from './dep';\nconsole.log(value);\n",
+    );
+    await fs.outputFile(
+      path.join(fixture, 'src/dep.ts'),
+      'export const value = 1;\n',
+    );
+
+    const tree = await parseDependencyTree('src/index.ts', { cwd: fixture });
+
+    expect(tree).toEqual({
+      'src/index.ts': [
+        {
+          issuer: 'src/index.ts',
+          request: './dep',
+          kind: DependencyKind.StaticImport,
+          id: 'src/dep.ts',
+        },
+      ],
+      'src/dep.ts': [],
+    });
+  });
+
   it('should parse an absolute entry file path', async () => {
     await fs.outputFile(
       path.join(fixture, 'src/index.ts'),

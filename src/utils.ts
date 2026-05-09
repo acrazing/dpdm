@@ -26,6 +26,7 @@ function createSkippedImportsRegExp(
 }
 
 export const defaultOptions: ParseOptions = {
+  cwd: process.cwd(),
   context: process.cwd(),
   extensions: ['', '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json'],
   js: ['.ts', '.tsx', '.mjs', '.js', '.jsx'],
@@ -39,27 +40,29 @@ export const defaultOptions: ParseOptions = {
 
 export function normalizeOptions(options: Partial<ParseOptions>): ParseOptions {
   const newOptions = { ...defaultOptions, ...options };
+  newOptions.cwd = path.resolve(options.cwd || process.cwd());
+  newOptions.context = path.resolve(newOptions.cwd, options.context || '.');
   if (newOptions.extensions.indexOf('') < 0) {
     newOptions.extensions.unshift('');
   }
-  newOptions.context = path.resolve(newOptions.context);
   if (options.tsconfig === void 0) {
     try {
       const tsconfig = path.join(newOptions.context, 'tsconfig.json');
       const stat = fs.statSync(tsconfig);
       if (stat.isFile()) {
-        options.tsconfig = tsconfig;
+        newOptions.tsconfig = tsconfig;
       }
     } catch {}
   } else {
+    const tsconfig = path.resolve(newOptions.cwd, options.tsconfig);
     let stat: fs.Stats | undefined;
     try {
-      stat = fs.statSync(options.tsconfig);
+      stat = fs.statSync(tsconfig);
     } catch {}
     if (!stat || !stat.isFile()) {
       throw new Error(`specified tsconfig "${options.tsconfig}" is not a file`);
     }
-    options.tsconfig = path.resolve(process.cwd(), options.tsconfig);
+    newOptions.tsconfig = tsconfig;
   }
   return newOptions;
 }
