@@ -10,13 +10,14 @@ import * as G from 'glob';
 import ora from 'ora';
 import path from 'path';
 import yargs from 'yargs';
-import { parseDependencyTree } from '../parser';
+import { normalizeEntryGlob, parseDependencyTree } from '../parser';
 import { ParseOptions } from '../types';
 import {
   defaultOptions,
   groupDependencyTreeByPackage,
   groupEntriesByPackage,
   isEmpty,
+  normalizePathSeparators,
   parseCircular,
   parseWarnings,
   prettyCircular,
@@ -33,7 +34,7 @@ function splitSkipImportValue(value: string): string[] {
 
 function normalizeCircularId(context: string, id: string) {
   const fullPath = path.isAbsolute(id) ? id : path.resolve(context, id);
-  return path.relative(context, fullPath);
+  return normalizePathSeparators(path.relative(context, fullPath));
 }
 
 function resolveFromCwd(cwd: string, target: string): string {
@@ -210,7 +211,7 @@ async function main() {
     switch (event) {
       case 'start':
         total += 1;
-        current = path.relative(context, target);
+        current = normalizePathSeparators(path.relative(context, target));
         break;
       case 'end':
         ended += 1;
@@ -242,7 +243,7 @@ async function main() {
       }
       o.succeed(`[${ended}/${total}] Analyze done!`);
       const entriesDeep = await Promise.all(
-        files.map((g) => G.glob(g, { cwd })),
+        files.map((g) => G.glob(normalizeEntryGlob(g), { cwd })),
       );
       const entries = await Promise.all(
         Array<string>()
@@ -250,7 +251,8 @@ async function main() {
           .map((name) => {
             const fullName = resolveFromCwd(cwd, name);
             return simpleResolver(cwd, fullName, options.extensions).then(
-              (id) => path.relative(context, id || fullName),
+              (id) =>
+                normalizePathSeparators(path.relative(context, id || fullName)),
             );
           }),
       );
@@ -308,9 +310,14 @@ async function main() {
         console.log('');
       }
       if (argv.detectUnusedFilesFrom) {
-        const allFiles = await G.glob(argv.detectUnusedFilesFrom, { cwd });
+        const allFiles = await G.glob(
+          normalizeEntryGlob(argv.detectUnusedFilesFrom),
+          { cwd },
+        );
         const shortAllFiles = allFiles.map((v) =>
-          path.relative(context, resolveFromCwd(cwd, v)),
+          normalizePathSeparators(
+            path.relative(context, resolveFromCwd(cwd, v)),
+          ),
         );
         const unusedFiles = shortAllFiles.filter((v) => !(v in tree)).sort();
         console.log(chalk.bold.cyan('• Unused files'));

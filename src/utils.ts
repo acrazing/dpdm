@@ -38,6 +38,10 @@ export const defaultOptions: ParseOptions = {
   onProgress: () => void 0,
 };
 
+export function normalizePathSeparators(filePath: string): string {
+  return filePath.replace(/\\/g, '/');
+}
+
 export function normalizeOptions(options: Partial<ParseOptions>): ParseOptions {
   const newOptions = { ...defaultOptions, ...options };
   newOptions.cwd = path.resolve(options.cwd || process.cwd());
@@ -128,14 +132,17 @@ export function shortenTree(
 ): DependencyTree {
   const output: DependencyTree = {};
   for (const key in tree) {
-    const shortKey = path.relative(context, key);
+    const shortKey = normalizePathSeparators(path.relative(context, key));
     output[shortKey] = tree[key]
       ? tree[key]!.map(
           (item) =>
             ({
               ...item,
               issuer: shortKey,
-              id: item.id === null ? null : path.relative(context, item.id),
+              id:
+                item.id === null
+                  ? null
+                  : normalizePathSeparators(path.relative(context, item.id)),
             }) as Dependency,
         )
       : null;
@@ -177,7 +184,8 @@ function getPackageNameFromPath(
       const name =
         typeof pkg.name === 'string' && pkg.name
           ? pkg.name
-          : path.relative(context, current) || path.basename(current);
+          : normalizePathSeparators(path.relative(context, current)) ||
+            path.basename(current);
       cache.set(current, name);
       return name;
     } catch {}

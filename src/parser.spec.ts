@@ -33,6 +33,24 @@ describe('parser', () => {
     });
   });
 
+  it('should parse Windows-style relative entry paths from a custom cwd', async () => {
+    const tree = await parseDependencyTree('packages\\shared\\src\\index.ts', {
+      cwd: fixture,
+    });
+
+    expect(tree).toEqual({
+      'packages/shared/src/index.ts': [
+        {
+          issuer: 'packages/shared/src/index.ts',
+          request: './dep',
+          kind: DependencyKind.StaticExport,
+          id: 'packages/shared/src/dep.ts',
+        },
+      ],
+      'packages/shared/src/dep.ts': [],
+    });
+  });
+
   it('should parse an absolute entry file path', async () => {
     const tree = await parseDependencyTree(
       path.join(fixture, 'packages/shared/src/index.ts'),

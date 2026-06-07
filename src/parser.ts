@@ -10,6 +10,7 @@ import ts from 'typescript';
 import { DependencyKind } from './consts';
 import { Dependency, DependencyTree, ParseOptions } from './types';
 import {
+  normalizePathSeparators,
   normalizeOptions,
   Resolver,
   shortenTree,
@@ -22,6 +23,10 @@ const typescriptTransformOptions: ts.CompilerOptions = {
   jsx: ts.JsxEmit.Preserve,
   isolatedModules: true,
 };
+
+export function normalizeEntryGlob(entry: string): string {
+  return normalizePathSeparators(entry);
+}
 
 async function parseTreeRecursive(
   context: string,
@@ -169,18 +174,19 @@ export async function parseDependencyTree(
   }
   await Promise.all(
     entries.map((entry) =>
-      G.glob(entry, { cwd: fullOptions.cwd }).then((matches) =>
-        Promise.all(
-          matches.map((filename) =>
-            parseTreeRecursive(
-              fullOptions.cwd,
-              path.resolve(fullOptions.cwd, filename),
-              fullOptions,
-              output,
-              resolve,
+      G.glob(normalizeEntryGlob(entry), { cwd: fullOptions.cwd }).then(
+        (matches) =>
+          Promise.all(
+            matches.map((filename) =>
+              parseTreeRecursive(
+                fullOptions.cwd,
+                path.resolve(fullOptions.cwd, filename),
+                fullOptions,
+                output,
+                resolve,
+              ),
             ),
           ),
-        ),
       ),
     ),
   );
