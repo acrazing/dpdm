@@ -5,10 +5,16 @@
 
 import chalk from 'chalk';
 import fs from 'fs-extra';
+import * as G from 'glob';
 import { builtinModules } from 'module';
 import path from 'path';
 import { DependencyKind } from './consts';
-import { Dependency, DependencyTree, ParseOptions } from './types';
+import {
+  Dependency,
+  DependencyTree,
+  ParseOptions,
+  WarningOptions,
+} from './types';
 
 const allBuiltins = new Set(builtinModules);
 
@@ -38,6 +44,11 @@ export const defaultOptions: ParseOptions = {
   onProgress: () => void 0,
 };
 
+export const defaultWarningOptions: WarningOptions = {
+  ignoreMissWarnings: [],
+  ignoreSkipWarnings: [],
+};
+
 export function normalizeOptions(options: Partial<ParseOptions>): ParseOptions {
   const newOptions = { ...defaultOptions, ...options };
   newOptions.cwd = path.resolve(options.cwd || process.cwd());
@@ -65,6 +76,13 @@ export function normalizeOptions(options: Partial<ParseOptions>): ParseOptions {
     newOptions.tsconfig = tsconfig;
   }
   return newOptions;
+}
+
+export function globFiles(pattern: string, cwd: string): Promise<string[]> {
+  return G.glob(pattern, {
+    cwd,
+    windowsPathsNoEscape: pattern.includes('\\'),
+  });
 }
 
 export async function appendSuffix(
@@ -265,6 +283,48 @@ export function groupEntriesByPackage(
   return output;
 }
 
+function getCircularKey(circular: string[]): string {
+  if (circular.length < 2) {
+    return circular.join('\0');
+  }
+  const rotations = circular.map((_, index) =>
+    circular.slice(index).concat(circular.slice(0, index)).join('\0'),
+  );
+  return rotations.sort()[0];
+}
+
+export function uniqueCirculars(circulars: string[][]): string[][] {
+  const output: string[][] = [];
+  const seen = new Set<string>();
+  for (const circular of circulars) {
+    const key = getCircularKey(circular);
+    if (!seen.has(key)) {
+      seen.add(key);
+      output.push(circular);
+    }
+  }
+  return output;
+}
+
+export function groupCircularsByPackage(
+  circulars: string[][],
+  context: string,
+): string[][] {
+  const cache = new Map<string, string | null>();
+  return uniqueCirculars(
+    circulars.map((circular) => {
+      const packages: string[] = [];
+      for (const id of circular) {
+        const packageName = getPackageNameFromPath(context, id, cache) || id;
+        if (packages[packages.length - 1] !== packageName) {
+          packages.push(packageName);
+        }
+      }
+      return packages;
+    }),
+  );
+}
+
 export function parseCircular(
   tree: DependencyTree,
   skipDynamicImports: boolean = false,
@@ -326,7 +386,9 @@ export function parseDependents(
 export function parseWarnings(
   tree: DependencyTree,
   dependents = parseDependents(tree),
+  options: Partial<WarningOptions> = {},
 ): string[] {
+  const fullOptions = { ...defaultWarningOptions, ...options };
   const warnings: string[] = [];
   const builtin = new Set<string>();
   for (const key in tree) {
@@ -335,6 +397,9 @@ export function parseWarnings(
       builtin.add(key);
     }
     if (!deps) {
+      if (fullOptions.ignoreSkipWarnings.some((regexp) => regexp.test(key))) {
+        continue;
+      }
       const parents = dependents[key] || [];
       const total = parents.length;
       warnings.push(
@@ -345,7 +410,12 @@ export function parseWarnings(
       );
     } else {
       for (const dep of deps) {
-        if (!dep.id) {
+        if (
+          !dep.id &&
+          !fullOptions.ignoreMissWarnings.some((regexp) =>
+            regexp.test(dep.request),
+          )
+        ) {
           warnings.push(
             `miss ${JSON.stringify(dep.request)} in ${JSON.stringify(
               dep.issuer,

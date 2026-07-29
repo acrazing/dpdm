@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "paths": {
+      "#ref-cycle/*": ["src/*"]
+    }
+  },
+  "include": ["src"]
+}

@@ -18,6 +18,37 @@ export interface ParseOptions {
   skipDynamicImports: boolean;
 }
 
+export interface WarningOptions {
+  ignoreMissWarnings: RegExp[];
+  ignoreSkipWarnings: RegExp[];
+}
+
+export interface Config {
+  files?: string | string[];
+  cwd?: string;
+  context?: string;
+  extensions?: string | string[];
+  js?: string | string[];
+  include?: string | RegExp;
+  exclude?: string | RegExp;
+  output?: string;
+  tree?: boolean;
+  circular?: boolean;
+  warning?: boolean;
+  tsconfig?: string;
+  transform?: boolean;
+  exitCode?: string;
+  progress?: boolean;
+  detectUnusedFilesFrom?: string;
+  skipDynamicImports?: 'tree' | 'circular';
+  skipImports?: string | string[];
+  groupByPackage?: boolean;
+  ignoreMissWarning?: string | string[];
+  ignoreMissWarnings?: string | string[];
+  ignoreSkipWarning?: string | string[];
+  ignoreSkipWarnings?: string | string[];
+}
+
 export interface Dependency {
   issuer: string;
   request: string;

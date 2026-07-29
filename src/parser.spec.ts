@@ -7,6 +7,7 @@ import path from 'path';
 import { DependencyKind } from './consts';
 import { parseDependencyTree } from './parser';
 import {
+  groupCircularsByPackage,
   groupDependencyTreeByPackage,
   groupEntriesByPackage,
   parseCircular,
@@ -17,6 +18,24 @@ describe('parser', () => {
 
   it('should parse relative entries from a custom cwd', async () => {
     const tree = await parseDependencyTree('packages/shared/src/index.ts', {
+      cwd: fixture,
+    });
+
+    expect(tree).toEqual({
+      'packages/shared/src/index.ts': [
+        {
+          issuer: 'packages/shared/src/index.ts',
+          request: './dep',
+          kind: DependencyKind.StaticExport,
+          id: 'packages/shared/src/dep.ts',
+        },
+      ],
+      'packages/shared/src/dep.ts': [],
+    });
+  });
+
+  it('should parse entries with Windows path separators', async () => {
+    const tree = await parseDependencyTree('packages\\shared\\src\\index.ts', {
       cwd: fixture,
     });
 
@@ -70,6 +89,83 @@ describe('parser', () => {
         kind: DependencyKind.StaticImport,
         id: 'packages/shared/src/dep.ts',
       },
+    ]);
+  });
+
+  it('should ignore imports preceded by @dpdm-ignore comments', async () => {
+    const entries = [
+      'packages/comment-ignore/src/index.ts',
+      'packages/comment-ignore/src/cycle-b.ts',
+    ];
+    const tree = await parseDependencyTree(entries, {
+      cwd: fixture,
+    });
+
+    expect(tree['packages/comment-ignore/src/index.ts']).toEqual([]);
+    expect(tree['packages/comment-ignore/src/cycle-b.ts']).toEqual([
+      {
+        issuer: 'packages/comment-ignore/src/cycle-b.ts',
+        request: './index',
+        kind: DependencyKind.StaticImport,
+        id: 'packages/comment-ignore/src/index.ts',
+      },
+    ]);
+    expect(tree['packages/shared/src/dep.ts']).toBeUndefined();
+    expect(tree['packages/ui/src/index.ts']).toBeUndefined();
+    expect(parseCircular(tree)).toEqual([]);
+
+    expect(
+      await parseDependencyTree(entries, {
+        cwd: fixture,
+        transform: true,
+      }),
+    ).toEqual(tree);
+  });
+
+  it('should resolve dependencies from the nearest package tsconfig', async () => {
+    const source = path.join(fixture, 'packages/ref-cycle/src');
+    const tree = await parseDependencyTree('index.ts', {
+      cwd: source,
+    });
+
+    expect(tree).toEqual({
+      'index.ts': [
+        {
+          issuer: 'index.ts',
+          request: '#ref-cycle/a.js',
+          kind: DependencyKind.StaticExport,
+          id: 'a.ts',
+        },
+      ],
+      'a.ts': [
+        {
+          issuer: 'a.ts',
+          request: './b.js',
+          kind: DependencyKind.StaticImport,
+          id: 'b.ts',
+        },
+      ],
+      'b.ts': [
+        {
+          issuer: 'b.ts',
+          request: './a.js',
+          kind: DependencyKind.StaticImport,
+          id: 'a.ts',
+        },
+      ],
+    });
+    expect(parseCircular(tree)).toEqual([['a.ts', 'b.ts']]);
+  });
+
+  it('should resolve dependencies from referenced tsconfig projects', async () => {
+    const packages = path.join(fixture, 'packages');
+    const tree = await parseDependencyTree('ref-cycle/src/index.ts', {
+      cwd: packages,
+      tsconfig: 'tsconfig.json',
+    });
+
+    expect(groupCircularsByPackage(parseCircular(tree), packages)).toEqual([
+      ['@repo/ref-cycle'],
     ]);
   });
 

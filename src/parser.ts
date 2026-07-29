@@ -4,12 +4,12 @@
  */
 
 import fs from 'fs-extra';
-import * as G from 'glob';
 import path from 'path';
 import ts from 'typescript';
 import { DependencyKind } from './consts';
 import { Dependency, DependencyTree, ParseOptions } from './types';
 import {
+  globFiles,
   normalizeOptions,
   Resolver,
   shortenTree,
@@ -22,6 +22,192 @@ const typescriptTransformOptions: ts.CompilerOptions = {
   jsx: ts.JsxEmit.Preserve,
   isolatedModules: true,
 };
+
+interface TsConfigProject {
+  dir: string;
+  options: ts.CompilerOptions;
+  host: ts.CompilerHost;
+}
+
+function readTsConfig(tsconfig: string): any {
+  const result = ts.readConfigFile(tsconfig, ts.sys.readFile);
+  if (result.error) {
+    throw new Error(
+      ts.flattenDiagnosticMessageText(result.error.messageText, '\n'),
+    );
+  }
+  return result.config;
+}
+
+function parseTsConfigProject(tsconfig: string): TsConfigProject {
+  const config = readTsConfig(tsconfig);
+  const dir = path.dirname(tsconfig);
+  const options = ts.parseJsonConfigFileContent(config, ts.sys, dir).options;
+  return {
+    dir,
+    options,
+    host: ts.createCompilerHost(options),
+  };
+}
+
+function resolveReferenceTsConfig(base: string, referencePath: string): string {
+  const target = path.resolve(base, referencePath);
+  return path.extname(target) ? target : path.join(target, 'tsconfig.json');
+}
+
+function loadTsConfigProjects(tsconfig: string): TsConfigProject[] {
+  const seen = new Set<string>();
+  const projects: TsConfigProject[] = [];
+
+  function visit(current: string) {
+    const fullPath = path.resolve(current);
+    if (seen.has(fullPath)) {
+      return;
+    }
+    seen.add(fullPath);
+
+    const config = readTsConfig(fullPath);
+    projects.push(parseTsConfigProject(fullPath));
+
+    for (const reference of config.references || []) {
+      if (reference && typeof reference.path === 'string') {
+        visit(resolveReferenceTsConfig(path.dirname(fullPath), reference.path));
+      }
+    }
+  }
+
+  visit(tsconfig);
+  return projects;
+}
+
+function isInsidePath(parent: string, child: string): boolean {
+  const relative = path.relative(parent, child);
+  return relative === '' || (!!relative && !relative.startsWith('..'));
+}
+
+function findProjectForContext(
+  projects: TsConfigProject[],
+  context: string,
+): TsConfigProject {
+  return (
+    projects
+      .filter((project) => isInsidePath(project.dir, context))
+      .sort((a, b) => b.dir.length - a.dir.length)[0] || projects[0]
+  );
+}
+
+function findNearestTsConfig(context: string): string | null {
+  let current = context;
+
+  while (true) {
+    const tsconfig = path.join(current, 'tsconfig.json');
+    try {
+      if (fs.statSync(tsconfig).isFile()) {
+        return tsconfig;
+      }
+    } catch {}
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+
+function createTsConfigResolver(options: ParseOptions): Resolver | undefined {
+  const projectCache = new Map<string, TsConfigProject[]>();
+  const nearestTsConfigCache = new Map<string, string | null>();
+
+  function getProjects(context: string): TsConfigProject[] | undefined {
+    const tsconfig =
+      options.tsconfig ||
+      (() => {
+        const cached = nearestTsConfigCache.get(context);
+        if (cached !== void 0) {
+          return cached;
+        }
+        const nearest = findNearestTsConfig(context);
+        nearestTsConfigCache.set(context, nearest);
+        return nearest;
+      })();
+
+    if (!tsconfig) {
+      return undefined;
+    }
+    let projects = projectCache.get(tsconfig);
+    if (!projects) {
+      projects = loadTsConfigProjects(tsconfig);
+      projectCache.set(tsconfig, projects);
+    }
+    return projects;
+  }
+
+  return async (context, request, extensions) => {
+    const projects = getProjects(context);
+    if (projects) {
+      const project = findProjectForContext(projects, context);
+      const module = ts.resolveModuleName(
+        request,
+        path.join(context, 'index.ts'),
+        project.options,
+        project.host,
+      ).resolvedModule;
+      if (module && module.extension !== ts.Extension.Dts) {
+        return module.resolvedFileName;
+      } else {
+        const filename = await simpleResolver(context, request, extensions);
+        if (filename === null && module) {
+          return simpleResolver(
+            context,
+            module.resolvedFileName.slice(0, -ts.Extension.Dts.length),
+            extensions,
+          );
+        }
+        return filename;
+      }
+    }
+
+    return simpleResolver(context, request, extensions);
+  };
+}
+
+function hasDpdmIgnoreLeadingComment(
+  source: ts.SourceFile,
+  node: ts.Node,
+): boolean {
+  return (
+    ts
+      .getLeadingCommentRanges(source.text, node.getFullStart())
+      ?.some((comment) =>
+        source.text.slice(comment.pos, comment.end).includes('@dpdm-ignore'),
+      ) || false
+  );
+}
+
+function findCommentTarget(node: ts.Node): ts.Node {
+  if (!ts.isCallExpression(node)) {
+    return node;
+  }
+
+  let current: ts.Node = node;
+  while (current.parent && !ts.isSourceFile(current.parent)) {
+    current = current.parent;
+    if (ts.isStatement(current)) {
+      return current;
+    }
+  }
+  return node;
+}
+
+function isDpdmIgnored(source: ts.SourceFile, node: ts.Node): boolean {
+  const commentTarget = findCommentTarget(node);
+  return (
+    hasDpdmIgnoreLeadingComment(source, node) ||
+    (commentTarget !== node &&
+      hasDpdmIgnoreLeadingComment(source, commentTarget))
+  );
+}
 
 async function parseTreeRecursive(
   context: string,
@@ -82,6 +268,9 @@ async function parseTreeRecursive(
       ts.forEachChild(node, nodeVisitor);
       return;
     }
+    if (isDpdmIgnored(source!, node)) {
+      return;
+    }
     dependencies.push({
       issuer: id!,
       request: newRequest,
@@ -136,40 +325,10 @@ export async function parseDependencyTree(
   }
   const output: DependencyTree = {};
   const fullOptions = normalizeOptions(options);
-  let resolve = simpleResolver;
-  if (fullOptions.tsconfig) {
-    const compilerOptions = ts.parseJsonConfigFileContent(
-      ts.readConfigFile(fullOptions.tsconfig, ts.sys.readFile).config,
-      ts.sys,
-      path.dirname(fullOptions.tsconfig),
-    ).options;
-
-    const host = ts.createCompilerHost(compilerOptions);
-    resolve = async (context, request, extensions) => {
-      const module = ts.resolveModuleName(
-        request,
-        path.join(context, 'index.ts'),
-        compilerOptions,
-        host,
-      ).resolvedModule;
-      if (module && module.extension !== ts.Extension.Dts) {
-        return module.resolvedFileName;
-      } else {
-        const filename = await simpleResolver(context, request, extensions);
-        if (filename === null && module) {
-          return simpleResolver(
-            context,
-            module.resolvedFileName.slice(0, -ts.Extension.Dts.length),
-            extensions,
-          );
-        }
-        return filename;
-      }
-    };
-  }
+  const resolve = createTsConfigResolver(fullOptions) || simpleResolver;
   await Promise.all(
     entries.map((entry) =>
-      G.glob(entry, { cwd: fullOptions.cwd }).then((matches) =>
+      globFiles(entry, fullOptions.cwd).then((matches) =>
         Promise.all(
           matches.map((filename) =>
             parseTreeRecursive(

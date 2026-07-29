@@ -27,7 +27,9 @@
 - Supports `CommonJS`, `ESM`.
 - Supports `JavaScript` and `TypeScript` completely.
   - Supports TypeScript [path mapping](https://www.typescriptlang.org/docs/handbook/module-resolution.html#path-mapping).
+  - Supports package-local `tsconfig.json` files and TypeScript project references.
   - Supports ignore TypeScript type dependencies.
+- Supports `dpdm.config.ts` and JavaScript/JSON config files.
 - Light weight: use [TypeScript](https://npmjs.com/package/typescript) to parse all modules.
 - Fast: use asynchronous API to load modules.
 - Stable output: This is compared to `madge`, whose results are completely inconclusive when analyze `TypeScript`.
@@ -110,10 +112,49 @@
    dpdm --group-by-package './packages/*/src/index.ts'
    ```
 
+10. Use a config file:
+
+    ```typescript
+    // dpdm.config.ts
+    import { defineConfig } from 'dpdm';
+
+    export default defineConfig({
+      files: ['./src/index.ts'],
+      exitCode: 'circular:1',
+      transform: true,
+      warning: false,
+    });
+    ```
+
+    ```bash
+    dpdm
+    ```
+
+    dpdm searches for `dpdm.config.ts`, `dpdm.config.mts`,
+    `dpdm.config.cts`, `dpdm.config.mjs`, `dpdm.config.cjs`,
+    `dpdm.config.js`, or `dpdm.config.json` in the working directory. CLI
+    options override config file values.
+
+11. Ignore imports from source comments:
+
+    ```typescript
+    // @dpdm-ignore
+    import './intentional-cycle';
+    ```
+
+    The `@dpdm-ignore` comment can be placed before an `import`, `export`,
+    `require()`, or dynamic `import()` dependency.
+
+12. Ignore selected warnings:
+
+    ```bash
+    dpdm ./src/index.ts --ignore-miss-warning '^vscode$' --ignore-skip-warning '^node_modules/'
+    ```
+
 ### Options
 
 ```bash
-dpdm [options] <files...>
+dpdm [files...]
 
 Analyze the files' dependencies.
 
@@ -122,6 +163,8 @@ Positionals:
 
 Options:
       --version                   Show version number                                      [boolean]
+      --config                    the config file path, default searches dpdm.config.* in cwd
+                                                                                            [string]
       --context                   the context directory to shorten path, default is cwd      [string]
       --cwd                       the working directory used to match files and resolve relative
                                   paths, default is current directory                       [string]
@@ -138,7 +181,9 @@ Options:
       --circular                  print circular to stdout                 [boolean] [default: true]
       --warning                   print warning to stdout                  [boolean] [default: true]
       --tsconfig                  the tsconfig path, which is used for resolve path alias, default
-                                  is tsconfig.json if it exists in context directory        [string]
+                                  is tsconfig.json if it exists in context directory. Project
+                                  references are supported. When omitted, dpdm can use the nearest
+                                  package tsconfig.json for each source file.               [string]
   -T, --transform                 transform typescript modules to javascript before analyze, it
                                   allows you to omit types dependency in typescript
                                                                           [boolean] [default: false]
@@ -153,6 +198,10 @@ Options:
                                                               [string] [choices: "tree", "circular"]
       --skip-imports              Skip import edges from circular checks. Values are regexp
                                   ISSUER:DEPENDENCY pairs.                                   [array]
+      --ignore-miss-warning       ignore miss warnings whose import request matches any specified
+                                  regexp                                                     [array]
+      --ignore-skip-warning       ignore skip warnings whose skipped file matches any specified
+                                  regexp                                                     [array]
       --group-by-package          print dependencies and circulars grouped by nearest package.json
                                                                                            [boolean]
   -h, --help                      Show help                                                [boolean]
@@ -165,7 +214,12 @@ Options:
 ## Usage as a package
 
 ```typescript jsx
-import { parseDependencyTree, parseCircular, prettyCircular } from 'dpdm';
+import {
+  defineConfig,
+  parseDependencyTree,
+  parseCircular,
+  prettyCircular,
+} from 'dpdm';
 
 parseDependencyTree('./index', {
   /* options, see below */
@@ -203,6 +257,32 @@ parseDependencyTree('./index', {
      onProgress: (event: 'start' | 'end', target: string) => void;
      transform: boolean;
      skipDynamicImports: boolean;
+   }
+
+   export declare function defineConfig(config: Config): Config;
+
+   export interface Config {
+     files?: string | string[];
+     cwd?: string;
+     context?: string;
+     extensions?: string | string[];
+     js?: string | string[];
+     include?: string | RegExp;
+     exclude?: string | RegExp;
+     output?: string;
+     tree?: boolean;
+     circular?: boolean;
+     warning?: boolean;
+     tsconfig?: string;
+     transform?: boolean;
+     exitCode?: string;
+     progress?: boolean;
+     detectUnusedFilesFrom?: string;
+     skipDynamicImports?: 'tree' | 'circular';
+     skipImports?: string | string[];
+     groupByPackage?: boolean;
+     ignoreMissWarning?: string | string[];
+     ignoreSkipWarning?: string | string[];
    }
 
    export enum DependencyKind {

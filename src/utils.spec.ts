@@ -5,7 +5,7 @@
 
 import fs from 'fs-extra';
 import { dirname, join } from 'path';
-import { parseCircular, simpleResolver } from './utils';
+import { parseCircular, parseWarnings, simpleResolver } from './utils';
 import type { Dependency } from './types';
 import { DependencyKind } from './consts';
 
@@ -285,6 +285,60 @@ describe('util', () => {
 
         expect(parseCircular(tree, false, [['a', 'b']])).toEqual([['a', 'bc']]);
       });
+    });
+  });
+
+  describe('When parsing warnings', () => {
+    it('Should ignore miss warnings matching import request patterns', () => {
+      const tree = {
+        'src/index.ts': [
+          {
+            issuer: 'src/index.ts',
+            request: 'vscode',
+            kind: DependencyKind.StaticImport,
+            id: null,
+          },
+          {
+            issuer: 'src/index.ts',
+            request: 'missing-runtime',
+            kind: DependencyKind.StaticImport,
+            id: null,
+          },
+        ],
+      };
+
+      expect(
+        parseWarnings(tree, undefined, {
+          ignoreMissWarnings: [/^vscode$/],
+        }),
+      ).toEqual(['miss "missing-runtime" in "src/index.ts"']);
+    });
+
+    it('Should ignore skip warnings matching skipped file patterns', () => {
+      const tree = {
+        'src/index.ts': [
+          {
+            issuer: 'src/index.ts',
+            request: 'pkg',
+            kind: DependencyKind.StaticImport,
+            id: 'node_modules/pkg/index.js',
+          },
+          {
+            issuer: 'src/index.ts',
+            request: './ignored',
+            kind: DependencyKind.StaticImport,
+            id: 'src/ignored.ts',
+          },
+        ],
+        'node_modules/pkg/index.js': null,
+        'src/ignored.ts': null,
+      };
+
+      expect(
+        parseWarnings(tree, undefined, {
+          ignoreSkipWarnings: [/^node_modules\//],
+        }),
+      ).toEqual(['skip "src/ignored.ts", issuers: "src/index.ts"']);
     });
   });
 });
