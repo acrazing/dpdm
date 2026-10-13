@@ -112,6 +112,129 @@ export type Resolver = (
   extensions: string[],
 ) => Promise<string | null>;
 
+const importConditions = ['import', 'require', 'node', 'default'];
+
+async function findPackageJson(context: string): Promise<string | null> {
+  let current = context;
+  while (true) {
+    const pkgPath = path.join(current, 'package.json');
+    try {
+      if ((await fs.stat(pkgPath)).isFile()) {
+        return pkgPath;
+      }
+    } catch {}
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+
+function resolveImportTarget(target: unknown): string | null {
+  if (typeof target === 'string') {
+    return target;
+  }
+  if (Array.isArray(target)) {
+    for (const item of target) {
+      const resolved = resolveImportTarget(item);
+      if (resolved !== null) {
+        return resolved;
+      }
+    }
+    return null;
+  }
+  if (target && typeof target === 'object') {
+    for (const key of Object.keys(target)) {
+      if (importConditions.indexOf(key) > -1) {
+        const resolved = resolveImportTarget(
+          (target as Record<string, unknown>)[key],
+        );
+        if (resolved !== null) {
+          return resolved;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Match a `#` request against a package.json `imports` field, following the
+ * Node.js PACKAGE_IMPORTS_EXPORTS_RESOLVE algorithm: exact keys first, then
+ * the `*` pattern with the longest prefix.
+ */
+export function matchSubpathImport(
+  imports: Record<string, unknown>,
+  request: string,
+): string | null {
+  if (
+    request.indexOf('*') < 0 &&
+    Object.prototype.hasOwnProperty.call(imports, request)
+  ) {
+    return resolveImportTarget(imports[request]);
+  }
+  let bestKey = '';
+  let bestMatch = '';
+  for (const key of Object.keys(imports)) {
+    const star = key.indexOf('*');
+    if (star < 0 || key.indexOf('*', star + 1) > -1) {
+      continue;
+    }
+    const prefix = key.slice(0, star);
+    const suffix = key.slice(star + 1);
+    if (
+      request !== prefix &&
+      request.startsWith(prefix) &&
+      request.length >= key.length &&
+      request.endsWith(suffix) &&
+      (bestKey === '' ||
+        prefix.length > bestKey.indexOf('*') ||
+        (prefix.length === bestKey.indexOf('*') && key.length > bestKey.length))
+    ) {
+      bestKey = key;
+      bestMatch = request.slice(prefix.length, request.length - suffix.length);
+    }
+  }
+  if (bestKey === '') {
+    return null;
+  }
+  const target = resolveImportTarget(imports[bestKey]);
+  return target === null ? null : target.split('*').join(bestMatch);
+}
+
+async function resolveSubpathImport(
+  context: string,
+  request: string,
+  extensions: string[],
+): Promise<string | null> {
+  const pkgPath = await findPackageJson(context);
+  if (!pkgPath) {
+    return null;
+  }
+  let imports: unknown;
+  try {
+    imports = (await fs.readJSON(pkgPath)).imports;
+  } catch {
+    return null;
+  }
+  if (!imports || typeof imports !== 'object') {
+    return null;
+  }
+  const target = matchSubpathImport(
+    imports as Record<string, unknown>,
+    request,
+  );
+  if (target === null || target.charAt(0) === '#') {
+    return null;
+  }
+  const pkgDir = path.dirname(pkgPath);
+  if (target.startsWith('./')) {
+    return appendSuffix(path.join(pkgDir, target), extensions);
+  }
+  return simpleResolver(pkgDir, target, extensions);
+}
+
 export const simpleResolver: Resolver = async (
   context: string,
   request: string,
@@ -122,6 +245,9 @@ export const simpleResolver: Resolver = async (
   }
   if (request.charAt(0) === '.') {
     return appendSuffix(path.join(context, request), extensions);
+  }
+  if (request.charAt(0) === '#') {
+    return resolveSubpathImport(context, request, extensions);
   }
   // is package
   const nodePath = { paths: [context] };

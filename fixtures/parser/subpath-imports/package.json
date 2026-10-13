@@ -1,0 +1,12 @@
+{
+  "name": "subpath-imports",
+  "private": true,
+  "imports": {
+    "#config": {
+      "node": "./src/config.js",
+      "default": "./src/config-browser.js"
+    },
+    "#lib/*": "./src/lib/*",
+    "#lib/dir/*": "./src/lib/dir/*.js"
+  }
+}

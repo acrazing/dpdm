@@ -227,4 +227,21 @@ describe('parser', () => {
     expect(circulars).toHaveLength(1);
     expect(circulars[0].sort()).toEqual(['@repo/cycle-a', '@repo/cycle-b']);
   });
+
+  it('should resolve package.json subpath imports', async () => {
+    const subpathFixture = path.join(
+      __dirname,
+      '../fixtures/parser/subpath-imports',
+    );
+    const tree = await parseDependencyTree('src/index.js', {
+      cwd: subpathFixture,
+    });
+
+    expect(tree['src/index.js']!.map((item) => item.id)).toEqual([
+      'src/lib/a.js',
+      'src/lib/dir/index.js',
+      'src/config.js',
+    ]);
+    expect(parseCircular(tree)).toEqual([['src/lib/a.js', 'src/lib/b.js']]);
+  });
 });

@@ -5,7 +5,12 @@
 
 import fs from 'fs-extra';
 import { dirname, join } from 'path';
-import { parseCircular, parseWarnings, simpleResolver } from './utils';
+import {
+  matchSubpathImport,
+  parseCircular,
+  parseWarnings,
+  simpleResolver,
+} from './utils';
 import type { Dependency } from './types';
 import { DependencyKind } from './consts';
 
@@ -58,6 +63,28 @@ describe('util', () => {
       ),
       null,
     ]);
+  });
+
+  it('should match package.json subpath imports', () => {
+    const imports = {
+      '#config': { types: './config.d.ts', node: './config.js' },
+      '#fallback': [{ browser: './browser.js' }, './fallback.js'],
+      '#lib/*': './lib/*',
+      '#lib/dir/*': './lib/dir/*.js',
+      '#ext/*.css': './styles/*.css',
+      '#external': 'some-package',
+    };
+
+    expect(matchSubpathImport(imports, '#config')).toBe('./config.js');
+    expect(matchSubpathImport(imports, '#fallback')).toBe('./fallback.js');
+    expect(matchSubpathImport(imports, '#lib/a/b')).toBe('./lib/a/b');
+    expect(matchSubpathImport(imports, '#lib/dir/c')).toBe('./lib/dir/c.js');
+    expect(matchSubpathImport(imports, '#ext/main.css')).toBe(
+      './styles/main.css',
+    );
+    expect(matchSubpathImport(imports, '#external')).toBe('some-package');
+    expect(matchSubpathImport(imports, '#lib/')).toBeNull();
+    expect(matchSubpathImport(imports, '#missing')).toBeNull();
   });
 
   describe('When parsing circular', () => {
