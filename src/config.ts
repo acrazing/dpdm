@@ -6,9 +6,10 @@
 import fs from 'fs-extra';
 import { createRequire } from 'module';
 import path from 'path';
-import ts from 'typescript';
+import { ScriptTarget } from 'typescript/ast';
+import { API, ModuleKind } from 'typescript/async';
 import { pathToFileURL } from 'url';
-import type { Config } from './types';
+import type { Config } from './types.js';
 
 const configNames = [
   'dpdm.config.ts',
@@ -37,14 +38,21 @@ function unwrapConfig(value: unknown): Config {
 
 async function loadTsConfigFile(filename: string): Promise<Config> {
   const source = await fs.readFile(filename, 'utf8');
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      esModuleInterop: true,
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2020,
-    },
-    fileName: filename,
-  }).outputText;
+  const api = new API();
+  let output: string;
+  try {
+    const { outputText } = await api.transpileModule(source, {
+      compilerOptions: {
+        module: ModuleKind.CommonJS,
+        target: ScriptTarget.ES2020,
+      },
+      // The configuration runs in a CommonJS wrapper, including .mts inputs.
+      fileName: filename.replace(/\.mts$/, '.ts'),
+    });
+    output = outputText;
+  } finally {
+    await api.close();
+  }
   const require = createRequire(filename);
   const dirname = path.dirname(filename);
   const configModule = { exports: {} as unknown };

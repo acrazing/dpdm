@@ -3,51 +3,84 @@
  * @since 2019-07-17 18:45:32
  */
 
+import { decode } from '@jridgewell/sourcemap-codec';
 import fs from 'fs-extra';
 import path from 'path';
-import ts from 'typescript';
-import { DependencyKind } from './consts';
-import { Dependency, DependencyTree, ParseOptions } from './types';
+import {
+  type Node,
+  ScriptKind,
+  ScriptTarget,
+  type SourceFile,
+  type StringLiteral,
+  SyntaxKind,
+} from 'typescript/ast';
+import {
+  isCallExpression,
+  isExportDeclaration,
+  isIdentifier,
+  isImportDeclaration,
+  isStatement,
+  isStringLiteral,
+} from 'typescript/ast/is';
+import { getLeadingCommentRanges } from 'typescript/ast/scanner';
+import {
+  API,
+  JsxEmit,
+  ModuleKind,
+  ModuleResolutionKind,
+  type RawCompilerOptions,
+} from 'typescript/async';
+import { DependencyKind } from './consts.js';
+import { Dependency, DependencyTree, ParseOptions } from './types.js';
 import {
   globFiles,
   normalizeOptions,
   Resolver,
   shortenTree,
   simpleResolver,
-} from './utils';
+} from './utils.js';
 
-const typescriptTransformOptions: ts.CompilerOptions = {
-  target: ts.ScriptTarget.ESNext,
-  module: ts.ModuleKind.ESNext,
-  jsx: ts.JsxEmit.Preserve,
-  isolatedModules: true,
-};
+type ModuleResolver = Awaited<ReturnType<API['createModuleResolver']>>;
 
 interface TsConfigProject {
   dir: string;
-  options: ts.CompilerOptions;
-  host: ts.CompilerHost;
+  resolver: ModuleResolver;
 }
 
-function readTsConfig(tsconfig: string): any {
-  const result = ts.readConfigFile(tsconfig, ts.sys.readFile);
-  if (result.error) {
-    throw new Error(
-      ts.flattenDiagnosticMessageText(result.error.messageText, '\n'),
+function getResolverOptions(options: RawCompilerOptions): RawCompilerOptions {
+  const { baseUrl, ...resolverOptions } = options;
+  if (baseUrl !== undefined) {
+    // Preserve baseUrl by trying it after the targets of any matching alias.
+    const paths = Object.fromEntries(
+      Object.entries(options.paths ?? {}).map(([pattern, targets]) => [
+        pattern,
+        [...targets, pattern],
+      ]),
     );
+    paths['*'] ??= ['*'];
+    resolverOptions.paths = paths;
+    resolverOptions.pathsBasePath = baseUrl;
   }
-  return result.config;
-}
 
-function parseTsConfigProject(tsconfig: string): TsConfigProject {
-  const config = readTsConfig(tsconfig);
-  const dir = path.dirname(tsconfig);
-  const options = ts.parseJsonConfigFileContent(config, ts.sys, dir).options;
-  return {
-    dir,
-    options,
-    host: ts.createCompilerHost(options),
-  };
+  const defaultedToNode10 =
+    options.moduleResolution === undefined &&
+    (options.module === ModuleKind.CommonJS ||
+      (options.module === undefined &&
+        (options.target === undefined ||
+          options.target < ScriptTarget.ES2015)));
+  if (
+    options.moduleResolution === ModuleResolutionKind.Node10 ||
+    defaultedToNode10
+  ) {
+    // Bundler without package maps preserves Node10 package subpath lookup.
+    resolverOptions.moduleResolution = ModuleResolutionKind.Bundler;
+    resolverOptions.resolvePackageJsonExports = false;
+    resolverOptions.resolvePackageJsonImports = false;
+    resolverOptions.resolveJsonModule ??=
+      options.module === ModuleKind.Node20 ||
+      options.module === ModuleKind.NodeNext;
+  }
+  return resolverOptions;
 }
 
 function resolveReferenceTsConfig(base: string, referencePath: string): string {
@@ -55,28 +88,42 @@ function resolveReferenceTsConfig(base: string, referencePath: string): string {
   return path.extname(target) ? target : path.join(target, 'tsconfig.json');
 }
 
-function loadTsConfigProjects(tsconfig: string): TsConfigProject[] {
+async function loadTsConfigProjects(
+  tsconfig: string,
+  api: API,
+  resolvers: Set<ModuleResolver>,
+): Promise<TsConfigProject[]> {
   const seen = new Set<string>();
   const projects: TsConfigProject[] = [];
 
-  function visit(current: string) {
+  async function visit(current: string) {
     const fullPath = path.resolve(current);
     if (seen.has(fullPath)) {
       return;
     }
     seen.add(fullPath);
 
-    const config = readTsConfig(fullPath);
-    projects.push(parseTsConfigProject(fullPath));
+    const { config, error } = await api.readConfigFile(fullPath);
+    if (error) {
+      throw new Error(error.text);
+    }
+    const dir = path.dirname(fullPath);
+    const { options, projectReferences } = await api.parseJsonConfigFileContent(
+      config,
+      { configDirectory: dir },
+    );
+    const resolver = await api.createModuleResolver(
+      getResolverOptions(options),
+    );
+    resolvers.add(resolver);
+    projects.push({ dir, resolver });
 
-    for (const reference of config.references || []) {
-      if (reference && typeof reference.path === 'string') {
-        visit(resolveReferenceTsConfig(path.dirname(fullPath), reference.path));
-      }
+    for (const reference of projectReferences ?? []) {
+      await visit(resolveReferenceTsConfig(dir, reference.path));
     }
   }
 
-  visit(tsconfig);
+  await visit(tsconfig);
   return projects;
 }
 
@@ -115,11 +162,17 @@ function findNearestTsConfig(context: string): string | null {
   }
 }
 
-function createTsConfigResolver(options: ParseOptions): Resolver | undefined {
-  const projectCache = new Map<string, TsConfigProject[]>();
+function createTsConfigResolver(
+  options: ParseOptions,
+  api: API,
+  resolvers: Set<ModuleResolver>,
+): Resolver {
+  const projectCache = new Map<string, Promise<TsConfigProject[]>>();
   const nearestTsConfigCache = new Map<string, string | null>();
 
-  function getProjects(context: string): TsConfigProject[] | undefined {
+  function getProjects(
+    context: string,
+  ): Promise<TsConfigProject[]> | undefined {
     const tsconfig =
       options.tsconfig ||
       (() => {
@@ -137,76 +190,192 @@ function createTsConfigResolver(options: ParseOptions): Resolver | undefined {
     }
     let projects = projectCache.get(tsconfig);
     if (!projects) {
-      projects = loadTsConfigProjects(tsconfig);
+      projects = loadTsConfigProjects(tsconfig, api, resolvers);
       projectCache.set(tsconfig, projects);
     }
     return projects;
   }
 
   return async (context, request, extensions) => {
-    const projects = getProjects(context);
+    const projects = await getProjects(context);
     if (projects) {
       const project = findProjectForContext(projects, context);
-      const module = ts.resolveModuleName(
+      const { resolvedModule } = await project.resolver.resolveModuleName(
         request,
-        path.join(context, 'index.ts'),
-        project.options,
-        project.host,
-      ).resolvedModule;
-      if (module && module.extension !== ts.Extension.Dts) {
-        return module.resolvedFileName;
-      } else {
-        const filename = await simpleResolver(context, request, extensions);
-        if (filename === null && module) {
-          return simpleResolver(
-            context,
-            module.resolvedFileName.slice(0, -ts.Extension.Dts.length),
-            extensions,
-          );
-        }
+        context,
+      );
+      const filename = resolvedModule?.resolvedFileName;
+      const declarationExtension = '.d.ts';
+      if (filename && !filename.endsWith(declarationExtension)) {
         return filename;
       }
+      const fallback = await simpleResolver(context, request, extensions);
+      if (fallback === null && filename) {
+        return simpleResolver(
+          context,
+          filename.slice(0, -declarationExtension.length),
+          extensions,
+        );
+      }
+      return fallback;
     }
 
     return simpleResolver(context, request, extensions);
   };
 }
 
-function hasDpdmIgnoreLeadingComment(
-  source: ts.SourceFile,
-  node: ts.Node,
-): boolean {
-  return (
-    ts
-      .getLeadingCommentRanges(source.text, node.getFullStart())
-      ?.some((comment) =>
-        source.text.slice(comment.pos, comment.end).includes('@dpdm-ignore'),
-      ) || false
-  );
-}
+type DependencyRequest = Pick<Dependency, 'request' | 'kind'>;
+type LocatedDependencyRequest = DependencyRequest & { position: number };
 
-function findCommentTarget(node: ts.Node): ts.Node {
-  if (!ts.isCallExpression(node)) {
-    return node;
+function collectDependencyRequests(
+  source: SourceFile,
+  skipDynamicImports: boolean,
+): LocatedDependencyRequest[] {
+  const requests: LocatedDependencyRequest[] = [];
+
+  function hasIgnoreComment(node: Node): boolean {
+    return (
+      getLeadingCommentRanges(source.text, node.getFullStart())?.some(
+        ({ pos, end }) => source.text.slice(pos, end).includes('@dpdm-ignore'),
+      ) ?? false
+    );
   }
 
-  let current: ts.Node = node;
-  while (current.parent && !ts.isSourceFile(current.parent)) {
-    current = current.parent;
-    if (ts.isStatement(current)) {
-      return current;
+  function isIgnored(node: Node): boolean {
+    if (hasIgnoreComment(node)) {
+      return true;
+    }
+    if (isCallExpression(node)) {
+      let current = node.parent;
+      while (current && current.kind !== SyntaxKind.SourceFile) {
+        if (isStatement(current)) {
+          return hasIgnoreComment(current);
+        }
+        current = current.parent;
+      }
+    }
+    return false;
+  }
+
+  function visit(node: Node): void {
+    let specifier: StringLiteral | undefined;
+    let kind: DependencyKind | undefined;
+    if (isImportDeclaration(node) && isStringLiteral(node.moduleSpecifier)) {
+      specifier = node.moduleSpecifier;
+      kind = DependencyKind.StaticImport;
+    } else if (
+      isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      isStringLiteral(node.moduleSpecifier)
+    ) {
+      specifier = node.moduleSpecifier;
+      kind = DependencyKind.StaticExport;
+    } else if (isCallExpression(node)) {
+      const { expression, arguments: args } = node;
+      if (args.length === 1 && isStringLiteral(args[0])) {
+        if (
+          expression.kind === SyntaxKind.ImportKeyword &&
+          !skipDynamicImports
+        ) {
+          specifier = args[0];
+          kind = DependencyKind.DynamicImport;
+        } else if (isIdentifier(expression) && expression.text === 'require') {
+          specifier = args[0];
+          kind = DependencyKind.CommonJS;
+        }
+      }
+    }
+    if (!specifier || kind === undefined) {
+      node.forEachChild(visit);
+    } else if (!isIgnored(node)) {
+      requests.push({
+        request: specifier.text,
+        kind,
+        position: specifier.getStart(source),
+      });
     }
   }
-  return node;
+
+  source.forEachChild(visit);
+  return requests;
 }
 
-function isDpdmIgnored(source: ts.SourceFile, node: ts.Node): boolean {
-  const commentTarget = findCommentTarget(node);
-  return (
-    hasDpdmIgnoreLeadingComment(source, node) ||
-    (commentTarget !== node &&
-      hasDpdmIgnoreLeadingComment(source, commentTarget))
-  );
+async function filterEmittedRequests(
+  source: SourceFile,
+  requests: LocatedDependencyRequest[],
+  api: API,
+): Promise<DependencyRequest[]> {
+  const { sourceMapText } = await api.transpileModule(source.text, {
+    // The dependency parser accepts JSX in both .ts and .tsx files.
+    fileName: 'module.tsx',
+    compilerOptions: {
+      target: ScriptTarget.ESNext,
+      module: ModuleKind.ESNext,
+      jsx: JsxEmit.Preserve,
+      sourceMap: true,
+      verbatimModuleSyntax: false,
+    },
+  });
+  if (!sourceMapText) {
+    throw new Error(
+      `TypeScript did not emit a source map for ${source.fileName}`,
+    );
+  }
+
+  // Match the original literal positions so repeated requests remain distinct
+  // and ignore comments stay attached to the original statements.
+  const { mappings } = JSON.parse(sourceMapText) as { mappings: string };
+  const unmapped = new Set(requests.map(({ position }) => position));
+  const lineStarts = source.getLineStarts();
+  for (const line of decode(mappings)) {
+    for (const segment of line) {
+      if (segment.length !== 1) {
+        const position = lineStarts[segment[2]] + segment[3];
+        if (unmapped.delete(position) && unmapped.size === 0) {
+          return requests;
+        }
+      }
+    }
+  }
+  return requests.filter(({ position }) => !unmapped.has(position));
+}
+
+async function readDependencyRequests(
+  id: string,
+  options: ParseOptions,
+  api: API,
+): Promise<DependencyRequest[]> {
+  const parsed = await api.createSourceFileFromFile(id, {
+    scriptKind: ScriptKind.TSX,
+  });
+  try {
+    const { sourceFile } = parsed;
+    const requests = collectDependencyRequests(
+      sourceFile,
+      options.skipDynamicImports,
+    );
+    const ext = path.extname(id);
+    if (
+      requests.length &&
+      options.transform &&
+      (ext === '.ts' || ext === '.tsx')
+    ) {
+      return await filterEmittedRequests(sourceFile, requests, api);
+    }
+    return requests;
+  } finally {
+    await parsed.dispose();
+  }
+}
+
+async function finishJobs<T>(jobs: Promise<T>[]): Promise<T[]> {
+  // The shared API can close after every sibling has finished, including on errors.
+  return (await Promise.allSettled(jobs)).map((result) => {
+    if (result.status === 'rejected') {
+      throw result.reason;
+    }
+    return result.value;
+  });
 }
 
 async function parseTreeRecursive(
@@ -215,6 +384,7 @@ async function parseTreeRecursive(
   options: ParseOptions,
   output: DependencyTree,
   resolve: Resolver,
+  api: API,
 ): Promise<string | null> {
   const id = await resolve(context, request, options.extensions);
   if (!id || output[id]) {
@@ -230,86 +400,26 @@ async function parseTreeRecursive(
   }
   options.onProgress('start', id);
   const dependencies: Dependency[] = (output[id] = []);
-  const jobs: Promise<string | null>[] = [];
   const newContext = path.dirname(id);
-
-  function nodeVisitor(node: ts.Node) {
-    let newRequest: string;
-    let kind: DependencyKind;
-    if (ts.isImportDeclaration(node)) {
-      newRequest = (node.moduleSpecifier as ts.StringLiteral).text;
-      kind = DependencyKind.StaticImport;
-    } else if (
-      ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length === 1 &&
-      ts.isStringLiteral(node.arguments[0]) &&
-      !options.skipDynamicImports
-    ) {
-      newRequest = (node.arguments[0] as ts.StringLiteral).text;
-      kind = DependencyKind.DynamicImport;
-    } else if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.escapedText === 'require' &&
-      node.arguments.length === 1 &&
-      ts.isStringLiteral(node.arguments[0])
-    ) {
-      newRequest = (node.arguments[0] as ts.StringLiteral).text;
-      kind = DependencyKind.CommonJS;
-    } else if (
-      ts.isExportDeclaration(node) &&
-      node.moduleSpecifier &&
-      ts.isStringLiteral(node.moduleSpecifier)
-    ) {
-      newRequest = (node.moduleSpecifier as ts.StringLiteral).text;
-      kind = DependencyKind.StaticExport;
-    } else {
-      ts.forEachChild(node, nodeVisitor);
-      return;
-    }
-    if (isDpdmIgnored(source!, node)) {
-      return;
-    }
-    dependencies.push({
-      issuer: id!,
-      request: newRequest,
-      kind: kind,
-      id: null,
-    });
-    jobs.push(
-      parseTreeRecursive(newContext, newRequest, options, output, resolve),
+  const requests = await readDependencyRequests(id, options, api);
+  const jobs = requests.map(({ request, kind }) => {
+    dependencies.push({ issuer: id, request, kind, id: null });
+    return parseTreeRecursive(
+      newContext,
+      request,
+      options,
+      output,
+      resolve,
+      api,
     );
-  }
-
-  const code = await fs.readFile(id, 'utf8');
-  const ext = path.extname(id);
-  let source: ts.SourceFile | undefined;
-  if (
-    options.transform &&
-    (ext === ts.Extension.Ts || ext === ts.Extension.Tsx)
-  ) {
-    ts.transpileModule(code, {
-      compilerOptions: typescriptTransformOptions,
-      transformers: {
-        after: [() => (node) => (source = node)],
-      },
-    });
-  } else {
-    source = ts.createSourceFile(
-      id,
-      code,
-      ts.ScriptTarget.Latest,
-      true,
-      ts.ScriptKind.TSX,
-    );
-  }
-  ts.forEachChild(source!, nodeVisitor);
-  options.onProgress('end', id);
-  return Promise.all(jobs).then((deps) => {
-    deps.forEach((id, index) => (dependencies[index].id = id));
-    return id;
   });
+  try {
+    options.onProgress('end', id);
+  } finally {
+    const ids = await finishJobs(jobs);
+    ids.forEach((id, index) => (dependencies[index].id = id));
+  }
+  return id;
 }
 
 /**
@@ -325,11 +435,14 @@ export async function parseDependencyTree(
   }
   const output: DependencyTree = {};
   const fullOptions = normalizeOptions(options);
-  const resolve = createTsConfigResolver(fullOptions) || simpleResolver;
-  await Promise.all(
-    entries.map((entry) =>
-      globFiles(entry, fullOptions.cwd).then((matches) =>
-        Promise.all(
+  const api = new API();
+  const resolvers = new Set<ModuleResolver>();
+  const resolve = createTsConfigResolver(fullOptions, api, resolvers);
+  try {
+    await finishJobs(
+      entries.map(async (entry) => {
+        const matches = await globFiles(entry, fullOptions.cwd);
+        return finishJobs(
           matches.map((filename) =>
             parseTreeRecursive(
               fullOptions.cwd,
@@ -337,12 +450,19 @@ export async function parseDependencyTree(
               fullOptions,
               output,
               resolve,
+              api,
             ),
           ),
-        ),
-      ),
-    ),
-  );
+        );
+      }),
+    );
+  } finally {
+    try {
+      await finishJobs(Array.from(resolvers, (resolver) => resolver.dispose()));
+    } finally {
+      await api.close();
+    }
+  }
   if (fullOptions.context) {
     return shortenTree(fullOptions.context, output);
   }

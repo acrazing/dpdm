@@ -3,7 +3,7 @@
  * @since 2019-07-17 18:45:59
  */
 
-import { DependencyKind } from './consts';
+import { DependencyKind } from './consts.js';
 
 export interface ParseOptions {
   cwd: string;

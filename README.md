@@ -184,8 +184,8 @@ Options:
                                   is tsconfig.json if it exists in context directory. Project
                                   references are supported. When omitted, dpdm can use the nearest
                                   package tsconfig.json for each source file.               [string]
-  -T, --transform                 transform typescript modules to javascript before analyze, it
-                                  allows you to omit types dependency in typescript
+  -T, --transform                 omit TypeScript dependencies that the compiler removes from
+                                  JavaScript output
                                                                           [boolean] [default: false]
       --exit-code                 exit with specified code, the value format is CASE:CODE,
                                   `circular` is the only supported CASE, CODE should be a integer
@@ -206,6 +206,10 @@ Options:
                                                                                            [boolean]
   -h, --help                      Show help                                                [boolean]
 ```
+
+Projects that used TypeScript's Classic module resolution can use relative
+imports or `paths` aliases for bare imports that previously resolved to files in
+an ancestor directory.
 
 ### Example output
 

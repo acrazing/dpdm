@@ -5,9 +5,9 @@
 
 import fs from 'fs-extra';
 import { dirname, join } from 'path';
-import { parseCircular, parseWarnings, simpleResolver } from './utils';
-import type { Dependency } from './types';
-import { DependencyKind } from './consts';
+import { parseCircular, parseWarnings, simpleResolver } from './utils.js';
+import type { Dependency } from './types.js';
+import { DependencyKind } from './consts.js';
 
 describe('util', () => {
   it('should resolve correctly', async () => {

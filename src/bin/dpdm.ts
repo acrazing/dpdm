@@ -9,9 +9,9 @@ import fs from 'fs-extra';
 import ora from 'ora';
 import path from 'path';
 import yargs from 'yargs';
-import { loadConfig } from '../config';
-import { parseDependencyTree } from '../parser';
-import { Config, ParseOptions } from '../types';
+import { loadConfig } from '../config.js';
+import { parseDependencyTree } from '../parser.js';
+import { Config, ParseOptions } from '../types.js';
 import {
   defaultOptions,
   globFiles,
@@ -26,8 +26,8 @@ import {
   prettyWarning,
   simpleResolver,
   uniqueCirculars,
-} from '../utils';
-import type { SkippedImport } from '../utils';
+} from '../utils.js';
+import type { SkippedImport } from '../utils.js';
 import { hideBin } from 'yargs/helpers';
 
 function splitSkipImportValue(value: string): string[] {
@@ -164,7 +164,7 @@ async function main() {
     })
     .option('transform', {
       type: 'boolean',
-      desc: 'transform typescript modules to javascript before analyze, it allows you to omit types dependency in typescript',
+      desc: 'omit TypeScript dependencies that the compiler removes from JavaScript output',
       alias: 'T',
     })
     .option('exit-code', {

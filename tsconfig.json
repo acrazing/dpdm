@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2015",
-    "module": "commonjs",
+    "module": "node20",
     "lib": ["esnext", "dom"],
     "allowJs": false,
     "jsx": "react",
@@ -13,7 +13,6 @@
     "removeComments": false,
     "noEmit": false,
     "importHelpers": true,
-    "downlevelIteration": true,
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -25,7 +24,6 @@
     "noUnusedParameters": false,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "resolveJsonModule": false,
