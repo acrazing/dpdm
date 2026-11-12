@@ -2,6 +2,8 @@
 
 Thanks for helping improve dpdm.
 
+Use an up-to-date Node.js 24 release for local development to match CI.
+
 ## Maintenance Standards
 
 - Keep changes focused on one bug fix, feature, or maintenance concern.

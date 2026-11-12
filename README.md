@@ -36,6 +36,8 @@
 
 ## Install
 
+Requires Node.js 22.12.0 or later.
+
 1. For command line
 
    ```bash
@@ -225,9 +227,7 @@ import {
   prettyCircular,
 } from 'dpdm';
 
-parseDependencyTree('./index', {
-  /* options, see below */
-}).then((tree) => {
+parseDependencyTree('./index', {/* options, see below */}).then((tree) => {
   const circulars = parseCircular(tree);
   console.log(prettyCircular(circulars));
 });
