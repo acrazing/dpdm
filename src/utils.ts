@@ -6,15 +6,15 @@
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import * as G from 'glob';
-import { builtinModules } from 'module';
+import { builtinModules, createRequire } from 'module';
 import path from 'path';
-import { DependencyKind } from './consts';
+import { DependencyKind } from './consts.js';
 import {
   Dependency,
   DependencyTree,
   ParseOptions,
   WarningOptions,
-} from './types';
+} from './types.js';
 
 const allBuiltins = new Set(builtinModules);
 
@@ -125,17 +125,15 @@ export const simpleResolver: Resolver = async (
   }
   // is package
   const nodePath = { paths: [context] };
+  const { resolve } = createRequire(path.resolve(context, 'index.js'));
   try {
-    const pkgPath = require.resolve(
-      path.join(request, 'package.json'),
-      nodePath,
-    );
+    const pkgPath = resolve(path.join(request, 'package.json'), nodePath);
     const pkgJson = await fs.readJSON(pkgPath);
     const id = path.join(path.dirname(pkgPath), pkgJson.module || pkgJson.main);
     return appendSuffix(id, extensions);
   } catch {}
   try {
-    return require.resolve(request, nodePath);
+    return resolve(request, nodePath);
   } catch {}
   return null;
 };

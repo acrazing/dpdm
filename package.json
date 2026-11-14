@@ -29,21 +29,15 @@
     "*.scss"
   ],
   "scripts": {
-    "build": "run-s clean && run-p build:cjs build:esm && run-s build:esm:rename build:cjs:rename",
-    "build:cjs": "tsc --outDir cjs --module commonjs",
-    "build:cjs:rename": "run-p build:cjs:rename:js build:cjs:rename:map",
-    "build:cjs:rename:js": "find ./cjs -type f -name '*.js' | sed -E 's/^\\.\\/cjs\\/(.+)$/\\1/' | xargs -I % mv ./cjs/% ./lib/%",
-    "build:cjs:rename:map": "find ./cjs -type f -name '*.js.map' | sed -E 's/^\\.\\/cjs\\/(.+)$/\\1/' | xargs -I % mv ./cjs/% ./lib/%",
-    "build:esm": "tsc --outDir lib --module esnext --declaration",
-    "build:esm:rename": "run-p build:esm:rename:js build:esm:rename:map",
-    "build:esm:rename:js": "find ./lib -type f -name '*.js' | sed -E 's/^(.+)\\.js$/\\1/' | xargs -I % mv %.js %.mjs",
-    "build:esm:rename:map": "find ./lib -type f -name '*.js.map' | sed -E 's/^(.+)\\.js\\.map$/\\1/' | xargs -I % mv %.js.map %.mjs.map",
+    "build": "run-s clean && run-p build:cjs build:esm",
+    "build:cjs": "tsc --outDir lib",
+    "build:esm": "node ./scripts/prepare-esm.cjs && tsc --outDir lib/esm --module esnext --moduleResolution bundler --declaration --declarationDir lib",
     "clean": "rm -rf cjs esm lib build temp .cache",
     "prepublishOnly": "run-s test build",
     "start": "npm run clean && npm run build:esm -- --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
-    "demo": "ts-node -T ./src/bin/dpdm.ts ./example/index.js",
+    "demo": "node --import tsx ./src/bin/dpdm.ts ./example/index.js",
     "prepare": "husky install"
   },
   "repository": {
@@ -51,26 +45,30 @@
     "url": "git@github.com:acrazing/dpdm.git"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
     "@types/yargs": "^17.0.35",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
-    "npm-run-all2": "^9.0.3",
-    "prettier": "^3.8.1",
+    "lint-staged": "^17.6.0",
+    "npm-run-all2": "^9.0.4",
+    "prettier": "^3.10.0",
     "pretty-quick": "^4.2.2",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.21.0",
-    "vitest": "^4.0.18"
+    "tsx": "^4.23.15",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
   },
   "dependencies": {
-    "chalk": "^5.6.2",
-    "fs-extra": "^11.3.3",
-    "glob": "^13.0.0",
-    "ora": "^9.1.0",
-    "tslib": "^2.8.1",
-    "typescript": "^5.9.3",
-    "yargs": "^18.0.0"
+    "@jridgewell/sourcemap-codec": "^1.6.0",
+    "chalk": "^6.0.1",
+    "fs-extra": "^11.4.1",
+    "glob": "^14.0.5",
+    "ora": "^10.0.0",
+    "tslib": "^2.9.1",
+    "typescript": "7.1.0-beta",
+    "yargs": "^18.2.0"
   },
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown"
@@ -84,7 +82,7 @@
     "jsxSingleQuote": false,
     "trailingComma": "all",
     "bracketSpacing": true,
-    "jsxBracketSameLine": false,
+    "bracketSameLine": false,
     "arrowParens": "always",
     "endOfLine": "lf"
   },
